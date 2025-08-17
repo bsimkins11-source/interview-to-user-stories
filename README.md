@@ -1,334 +1,203 @@
-# Interview ETL User Stories
+# Interview ETL - User Stories Generator
 
-An intelligent ETL application for processing interview data into structured user stories using AI-powered extraction and normalization. Built with Next.js, FastAPI, and Gemini AI.
+> **Last Deployment**: 2025-08-17 17:00 UTC
+
+Transform interview transcripts into structured user stories using AI-powered ETL processing.
 
 ## 🚀 Features
 
-- **Smart Construct Editor**: Define custom output schemas, patterns, and defaults
-- **AI-Powered Extraction**: Gemini AI analyzes transcripts and extracts user stories
-- **Multi-Format Support**: Process TXT, DOCX, MD, and PDF files
-- **Real-time Processing**: Live status updates and progress tracking
-- **Intelligent Assistant**: Built-in AI help throughout the ETL process
-- **Beautiful UI**: Modern, responsive design that fits the Agent Hub ecosystem
+- **Complete ETL Pipeline**: 4-step wizard for interview processing
+- **Multiple Input Types**: File uploads, folder links, document links
+- **External Story Import**: Google Drive, SharePoint, OneDrive integration
+- **AI-Powered Extraction**: Gemini-powered user story generation
+- **Consistent Output**: Deterministic processing with CSV export
+- **Enhanced AI Assistant**: Context-aware Q&A throughout the process
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend       │    │   Worker        │
-│   (Next.js)     │◄──►│   (FastAPI)     │◄──►│   (Cloud Run)   │
-│                 │    │                 │    │                 │
-│ • Construct     │    │ • Job Management│    │ • File Parsing  │
-│ • File Upload   │    │ • Signed URLs   │    │ • AI Extraction │
-│ • Status Monitor│    │ • Firestore     │    │ • Deduplication │
-│ • AI Assistant  │    │ • GCS Storage   │    │ • CSV Generation│
+│   Frontend      │    │   Backend       │    │     Worker      │
+│   (Next.js)     │◄──►│   (FastAPI)     │◄──►│   (Python)      │
+│   Vercel        │    │   Cloud Run     │    │   Cloud Run     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
-         │                       ▼                       ▼
-         │              ┌─────────────────┐    ┌─────────────────┐
-         │              │   Firestore     │    │   Google Cloud  │
-         │              │   (Database)    │    │   Storage       │
-         │              └─────────────────┘    └─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│   Gemini AI     │
-│   (Assistant)   │
-│                 │
-│ • Construct Help│
-│ • Data Analysis │
-│ • Process Guide │
-└─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   External      │    │   Firestore     │    │   Cloud         │
+│   Imports       │    │   Database      │    │   Storage       │
+│   (GDrive, SP)  │    │   (Jobs, Data)  │    │   (Files)       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **Next.js 14** with App Router
-- **Tailwind CSS** for styling
-- **shadcn/ui** components
-- **React Hook Form** with Zod validation
-- **React Dropzone** for file uploads
-
-### Backend
-- **FastAPI** for REST API
-- **Google Cloud Firestore** for data storage
-- **Google Cloud Storage** for file management
-- **Google Cloud Pub/Sub** for async processing
-
-### AI & Processing
-- **Google Gemini** for intelligent assistance and extraction
-- **Document parsing** (TXT, DOCX, MD, PDF)
-- **Jaccard similarity** for deduplication
-- **Custom construct templates**
+- **Frontend**: Next.js 14, React, Tailwind CSS, shadcn/ui
+- **Backend**: FastAPI, Python, Google Cloud Run
+- **Worker**: Python, AI processing, document parsing
+- **Database**: Google Cloud Firestore
+- **Storage**: Google Cloud Storage
+- **AI**: Google Gemini, OpenAI (optional)
+- **Deployment**: Vercel (frontend), GCP Cloud Run (backend/worker)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ and npm
-- Python 3.9+
-- Google Cloud Project with enabled services
-- Gemini API key
+- Node.js 18+
+- Python 3.11+
+- Docker & Docker Compose
+- Google Cloud Platform account
 
-### 1. Clone and Setup
+### Local Development
 ```bash
-git clone <repository-url>
+# Clone the repository
+git clone <your-repo-url>
 cd Interview-ETL-User-Stories
 
-# Install frontend dependencies
+# Start local services
+./start-local.sh
+
+# Frontend (in new terminal)
 cd frontend
 npm install
-
-# Install backend dependencies
-cd ../backend
-pip install -r requirements.txt
-
-# Install worker dependencies
-cd ../worker
-pip install -r requirements.txt
-```
-
-### 2. Environment Configuration
-
-#### Frontend (.env.local)
-```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your_nextauth_secret
-```
-
-#### Backend (.env)
-```bash
-GCP_PROJECT_ID=your-project-id
-GCS_BUCKET=your-bucket-name
-PUBSUB_TOPIC=jobs.process
-FIRESTORE_COLLECTION_JOBS=Jobs
-FIRESTORE_COLLECTION_CONSTRUCTS=Constructs
-LLM_PROVIDER=gemini
-GOOGLE_API_KEY=your_gemini_api_key
-CORS_ALLOW_ORIGINS=http://localhost:3000
-```
-
-#### Worker (.env)
-```bash
-GCP_PROJECT_ID=your-project-id
-GCS_BUCKET=your-bucket-name
-PUBSUB_TOPIC=jobs.process
-FIRESTORE_COLLECTION_JOBS=Jobs
-FIRESTORE_COLLECTION_CONSTRUCTS=Constructs
-LLM_PROVIDER=gemini
-GOOGLE_API_KEY=your_gemini_api_key
-```
-
-### 3. Start Development Servers
-
-```bash
-# Terminal 1: Frontend
-cd frontend
 npm run dev
 
-# Terminal 2: Backend
+# Backend (in new terminal)
 cd backend
-python -m uvicorn main:app --reload --port 8000
-
-# Terminal 3: Worker
-cd worker
-python main.py
+pip install -r requirements.txt
+uvicorn main:app --reload
 ```
 
-### 4. Access the Application
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+### Production Deployment
+```bash
+# Backend & Worker to GCP
+gcloud run deploy interview-etl-backend --source backend --region us-central1
+gcloud run deploy interview-etl-worker --source worker --region us-central1
+
+# Frontend to Vercel (auto-deploys from GitHub)
+git push origin main
+```
 
 ## 📋 Usage Workflow
 
-### 1. Define Output Structure
-- Use the **Construct Editor** to define your desired output format
-- Choose from pre-built templates or create custom ones
-- Define columns, patterns, defaults, and priority rules
-- Preview how your data will be structured
+### 1. Define Structure
+- Create output schema templates
+- Configure user story patterns
+- Set default values and priorities
 
-### 2. Upload Interview Files
-- Prepare a ZIP file containing your interview transcripts
-- Supported formats: TXT, DOCX, MD, PDF
-- Drag and drop or browse to upload
-- Files are securely stored in Google Cloud Storage
+### 2. Add Transcripts
+- Upload interview files (ZIP, TXT, DOCX, PDF, MD)
+- Import from cloud storage (Google Drive, SharePoint, OneDrive)
+- Provide direct document links
 
-### 3. AI Processing
-- Our Gemini AI analyzes each transcript
-- Extracts user stories based on your construct
-- Applies patterns and default values
-- Performs deduplication and quality scoring
+### 3. Process & Extract
+- AI-powered content analysis
+- User story pattern recognition
+- Automatic categorization and scoring
 
 ### 4. Download Results
-- Get structured CSV output
-- View processing metrics and insights
-- Analyze data patterns and distributions
-- Start new jobs or refine your construct
+- CSV export with structured data
+- Confidence scores for each story
+- Deduplication and quality metrics
 
 ## 🤖 AI Assistant Features
 
-The built-in Gemini AI assistant provides:
+- **Context-Aware Q&A**: Understands your current ETL step
+- **User Story Guidance**: Best practices and templates
+- **Process Explanation**: How the AI extraction works
+- **Smart Suggestions**: Contextual help for each stage
 
-- **Construct Guidance**: Help with schema design and optimization
-- **Template Suggestions**: Pre-built patterns for common use cases
-- **Data Analysis**: Insights about extracted stories and patterns
-- **Process Help**: Step-by-step guidance through the ETL workflow
-- **Best Practices**: Tips for interview preparation and data quality
+## 🔌 External Import Capabilities
 
-## 🚀 Deployment
+### Supported Sources
+- **Google Drive**: Folders and documents
+- **SharePoint**: Team sites and document libraries
+- **OneDrive**: Personal and business storage
+- **Direct Links**: HTTP endpoints, APIs, external systems
 
-### Frontend (Vercel)
-```bash
-cd frontend
-npm run build
-vercel --prod
-```
+### Import Formats
+- **Documents**: Google Sheets, Excel, Word, PDF
+- **Data**: CSV, JSON, XML
+- **Text**: Plain text, Markdown
 
-### Backend & Worker (Google Cloud Run)
-```bash
-# Build and deploy API
-gcloud run deploy i2s-api \
-  --source backend \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated
+## 📊 Output Schema
 
-# Build and deploy worker
-gcloud run deploy i2s-worker \
-  --source worker \
-  --platform managed \
-  --region us-central1 \
-  --no-allow-unauthenticated
-```
+The system generates structured user stories with:
+- **User Story**: "As a [role], I need [capability] so that [benefit]"
+- **Metadata**: Category, priority, tags, confidence score
+- **Requirements**: Acceptance criteria, dependencies
+- **Source**: Original transcript reference, extraction method
 
-### Infrastructure Setup
-```bash
-# Enable required services
-gcloud services enable run.googleapis.com
-gcloud services enable firestore.googleapis.com
-gcloud services enable storage.googleapis.com
-gcloud services enable pubsub.googleapis.com
+## 🔒 Security & Privacy
 
-# Create Firestore database
-gcloud firestore databases create --region=us-central1
-
-# Create GCS bucket
-gsutil mb gs://your-bucket-name
-
-# Create Pub/Sub topic
-gcloud pubsub topics create jobs.process
-```
-
-## 🔧 Configuration
-
-### Construct Templates
-The system supports custom construct definitions:
-
-```json
-{
-  "name": "User Story Template",
-  "output_schema": [
-    "User Story ID",
-    "User Story",
-    "Team",
-    "Category",
-    "Priority",
-    "Source",
-    "Snippet"
-  ],
-  "pattern": "As a {{role}}, I need {{capability}} so that {{benefit}}.",
-  "defaults": {
-    "Category": "Workflow",
-    "Priority": "Medium"
-  },
-  "priority_rules": ["high", "medium", "low"]
-}
-```
-
-### File Processing
-- **ZIP Upload**: Maximum 100MB per job
-- **Supported Formats**: TXT, DOCX, MD, PDF
-- **Processing Time**: 2-5 minutes for typical jobs
-- **Output**: Structured CSV with configurable columns
+- **No Data Persistence**: Files processed and deleted
+- **Secure Uploads**: Signed URLs for file transfers
+- **API Authentication**: Configurable access controls
+- **CORS Protection**: Restricted to authorized domains
 
 ## 🧪 Testing
 
-### Frontend Tests
+### Local Testing
 ```bash
+# Run backend tests
+cd backend
+python -m pytest
+
+# Run frontend tests
 cd frontend
-npm run test
+npm test
+
+# End-to-end testing
 npm run test:e2e
 ```
 
-### Backend Tests
-```bash
-cd backend
-pytest
-```
+### Production Testing
+- Health check endpoints
+- API response validation
+- File processing workflows
+- AI extraction accuracy
 
-### Integration Tests
-```bash
-# Test complete ETL pipeline
-python -m pytest tests/integration/
-```
+## 📈 Monitoring
 
-## 📊 Monitoring & Analytics
+- **Health Checks**: Service availability monitoring
+- **Processing Metrics**: Job completion rates
+- **Error Tracking**: Failed job analysis
+- **Performance**: Response time monitoring
 
-- **Job Status**: Real-time processing updates
-- **Performance Metrics**: Processing time and success rates
-- **Error Tracking**: Detailed error logs and debugging
-- **Usage Analytics**: Job volume and user patterns
+## 🚀 Roadmap
 
-## 🔒 Security
-
-- **Authentication**: Google OAuth integration
-- **File Security**: Signed URLs for secure file access
-- **Data Privacy**: Files processed in isolated environments
-- **API Security**: CORS protection and rate limiting
+- [ ] **Auth Integration**: Google OAuth, Auth.js
+- [ ] **Advanced AI**: Custom model training
+- [ ] **Real-time Processing**: WebSocket updates
+- [ ] **Batch Processing**: Large file optimization
+- [ ] **API Rate Limiting**: Usage management
+- [ ] **Advanced Analytics**: Processing insights
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests and documentation
+4. Add tests
 5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details
 
 ## 🆘 Support
 
 - **Documentation**: [Project Wiki](link-to-wiki)
 - **Issues**: [GitHub Issues](link-to-issues)
 - **Discussions**: [GitHub Discussions](link-to-discussions)
-- **Email**: support@example.com
 
-## 🎯 Roadmap
+## 🔗 Links
 
-### Phase 1 (Current)
-- ✅ Basic ETL pipeline
-- ✅ Construct editor
-- ✅ AI-powered extraction
-- ✅ Real-time status updates
-
-### Phase 2 (Next)
-- 🔄 Advanced analytics dashboard
-- 🔄 Team collaboration features
-- 🔄 API rate limiting and quotas
-- 🔄 Enhanced error handling
-
-### Phase 3 (Future)
-- 📋 Multi-language support
-- 📋 Advanced AI models
-- 📋 Enterprise features
-- 📋 Mobile application
+- **Live Application**: [https://interview-to-user-stories.vercel.app/](https://interview-to-user-stories.vercel.app/)
+- **Backend API**: [https://interview-etl-backend-289778453333.us-central1.run.app/](https://interview-etl-backend-289778453333.us-central1.run.app/)
+- **Agent Hub**: [https://transparent-agent-hub-zeta.vercel.app/](https://transparent-agent-hub-zeta.vercel.app/)
 
 ---
 
-Built with ❤️ for the Agent Hub ecosystem
+**Built with ❤️ for transforming interviews into actionable user stories**
