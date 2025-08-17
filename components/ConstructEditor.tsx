@@ -2,8 +2,6 @@
 
 import React, { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Plus, Trash2, Copy, Download, Upload, Save } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -13,17 +11,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from './ui/use-toast';
 
-// Zod schema for construct validation
-const constructSchema = z.object({
-  name: z.string().min(1, "Construct name is required"),
-  description: z.string().optional(),
-  output_schema: z.array(z.string()).min(1, "At least one output column is required"),
-  pattern: z.string().min(1, "Pattern template is required"),
-  defaults: z.record(z.string(), z.string()),
-  priority_rules: z.array(z.string()),
-});
-
-type ConstructFormData = z.infer<typeof constructSchema>;
+// Simplified interface without Zod
+interface ConstructFormData {
+  name: string;
+  description?: string;
+  output_schema: string[];
+  pattern: string;
+  defaults: Record<string, string>;
+  priority_rules: string[];
+}
 
 // Default construct template
 const defaultConstruct: ConstructFormData = {
@@ -98,12 +94,11 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
     formState: { errors, isValid },
     reset
   } = useForm<ConstructFormData>({
-    resolver: zodResolver(constructSchema),
     defaultValues: initialData || defaultConstruct,
     mode: "onChange"
   });
 
-  const { fields, append, remove } = useFieldArray<ConstructFormData>({
+  const { fields, append, remove } = useFieldArray({
     control,
     name: "output_schema"
   });
