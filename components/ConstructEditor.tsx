@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Plus, Trash2, Copy, Download, Upload, Save } from 'lucide-react';
 import { Button } from './ui/button';
