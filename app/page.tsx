@@ -17,13 +17,11 @@ type Step = 'construct' | 'upload' | 'process' | 'download';
 
 interface Construct {
   name: string;
-  description: string;
-  fields: Array<{
-    name: string;
-    type: string;
-    description: string;
-    required: boolean;
-  }>;
+  description?: string;
+  output_schema: string[];
+  pattern: string;
+  defaults: Record<string, string>;
+  priority_rules: string[];
 }
 
 interface Transcript {
@@ -98,7 +96,7 @@ export default function HomePage() {
     setConstruct(newConstruct);
     toast({
       title: "Construct saved!",
-      description: "Your output structure has been defined.",
+      description: `Your output structure "${newConstruct.name}" has been defined with ${newConstruct.output_schema.length} fields.`,
     });
   };
 
