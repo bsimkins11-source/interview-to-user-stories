@@ -24,27 +24,32 @@ interface Construct {
   priority_rules: string[];
 }
 
-interface Transcript {
+interface TranscriptInput {
   id: string;
-  name: string;
   type: 'file' | 'folder' | 'document';
-  status: 'pending' | 'importing' | 'completed' | 'failed';
-  url?: string;
+  name: string;
+  source: string;
+  status: 'pending' | 'uploading' | 'completed' | 'error';
+  size?: number;
+  file_count?: number;
 }
 
 interface ExternalStory {
   id: string;
-  name: string;
-  type: 'folder' | 'document' | 'link';
-  status: 'pending' | 'importing' | 'completed' | 'failed';
+  title: string;
+  description: string;
+  source: string;
   url?: string;
-  storyCount?: number;
+  type: 'folder' | 'document' | 'link';
+  status: 'pending' | 'importing' | 'completed' | 'error';
+  stories_count?: number;
+  last_updated?: string;
 }
 
 export default function HomePage() {
   const [currentStep, setCurrentStep] = useState<Step>('construct');
   const [construct, setConstruct] = useState<Construct | null>(null);
-  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [transcripts, setTranscripts] = useState<TranscriptInput[]>([]);
   const [externalStories, setExternalStories] = useState<ExternalStory[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>('idle');
@@ -100,7 +105,7 @@ export default function HomePage() {
     });
   };
 
-  const handleTranscriptsAdded = (newTranscripts: Transcript[]) => {
+  const handleTranscriptsAdded = (newTranscripts: TranscriptInput[]) => {
     setTranscripts(prev => [...prev, ...newTranscripts]);
     toast({
       title: "Transcripts added!",
@@ -108,8 +113,12 @@ export default function HomePage() {
     });
   };
 
-  const handleTranscriptsRemoved = (transcriptId: string) => {
-    setTranscripts(prev => prev.filter(t => t.id !== transcriptId));
+  const handleTranscriptsRemoved = (transcriptIds: string[]) => {
+    setTranscripts(prev => prev.filter(t => !transcriptIds.includes(t.id)));
+    toast({
+      title: "Transcripts removed",
+      description: `${transcriptIds.length} transcript(s) removed.`,
+    });
   };
 
   const handleExternalStoriesImported = (newStories: ExternalStory[]) => {
