@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Send, Bot, Sparkles, MessageSquare } from 'lucide-react';
+import { Send, Bot, Sparkles } from 'lucide-react';
 
 interface Message {
   type: 'user' | 'assistant';
@@ -67,13 +66,7 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
     }
   };
 
-  const generateAIResponse = async (
-    question: string,
-    step: number,
-    construct?: any,
-    status?: string,
-    stories?: any[]
-  ): Promise<string> {
+  const generateAIResponse = async (question: string, step: number, construct?: any, status?: string, stories?: any[]): Promise<string> => {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
 
