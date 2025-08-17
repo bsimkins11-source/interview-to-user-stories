@@ -201,8 +201,16 @@ export default function HomePage() {
                 AI-powered extraction using your defined structure and interview transcripts.
               </p>
             </div>
-            <JobStatus jobId={jobId} status={jobStatus} />
-            {jobStatus === 'idle' && (
+            {jobId ? (
+              <JobStatus 
+                jobId={jobId} 
+                onComplete={(jobData) => {
+                  setJobStatus('completed');
+                  setCurrentStep('download');
+                }}
+                onBack={() => setCurrentStep('upload')}
+              />
+            ) : (
               <div className="text-center">
                 <Button onClick={handleStartProcessing} size="lg">
                   <Play className="mr-2 h-4 w-4" />
@@ -222,7 +230,7 @@ export default function HomePage() {
                 Your structured user stories are ready for download.
               </p>
             </div>
-            <ResultsDownload jobId={jobId} />
+            {jobId && <ResultsDownload jobId={jobId} />}
           </div>
         );
 
