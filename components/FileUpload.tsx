@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
-import { Upload, FileText, CheckCircle, X, AlertCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, X, AlertCircle, ArrowLeft } from 'lucide-react';
 import { api, apiEndpoints } from '../lib/api';
 import { useToast } from './ui/use-toast';
 
