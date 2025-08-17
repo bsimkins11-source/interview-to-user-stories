@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { Plus, Trash2, Copy, Download, Upload, Save } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -84,31 +84,47 @@ interface ConstructEditorProps {
 export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
   const [activeTab, setActiveTab] = useState("editor");
   const [isLoading, setIsLoading] = useState(false);
+  const [outputSchema, setOutputSchema] = useState<string[]>(
+    initialData?.output_schema || defaultConstruct.output_schema
+  );
 
   const {
     register,
-    control,
     handleSubmit,
     watch,
     setValue,
     formState: { errors, isValid },
     reset
-  } = useForm<ConstructFormData>({
-    defaultValues: initialData || defaultConstruct,
+  } = useForm<Omit<ConstructFormData, 'output_schema'>>({
+    defaultValues: {
+      name: initialData?.name || defaultConstruct.name,
+      description: initialData?.description || defaultConstruct.description,
+      pattern: initialData?.pattern || defaultConstruct.pattern,
+      defaults: initialData?.defaults || defaultConstruct.defaults,
+      priority_rules: initialData?.priority_rules || defaultConstruct.priority_rules
+    },
     mode: "onChange"
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "output_schema"
-  });
-
   const watchedDefaults = watch("defaults");
+
+  const addOutputField = () => {
+    setOutputSchema(prev => [...prev, `Field ${prev.length + 1}`]);
+  };
+
+  const removeOutputField = (index: number) => {
+    setOutputSchema(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateOutputField = (index: number, value: string) => {
+    setOutputSchema(prev => prev.map((field, i) => i === index ? value : field));
+  };
 
   const handleTemplateSelect = (templateKey: string) => {
     const template = constructTemplates[templateKey as keyof typeof constructTemplates];
     if (template) {
       reset(template);
+      setOutputSchema(template.output_schema);
       toast({
         title: "Template loaded",
         description: `${template.name} has been applied to your construct.`,
@@ -124,6 +140,7 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
         try {
           const jsonData = JSON.parse(e.target?.result as string);
           reset(jsonData);
+          setOutputSchema(jsonData.output_schema || []);
           toast({
             title: "Import successful",
             description: "Construct has been imported from JSON file.",
@@ -141,20 +158,28 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
   };
 
   const handleExportJSON = () => {
-    const data = watch();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const formData = watch();
+    const fullData: ConstructFormData = {
+      ...formData,
+      output_schema: outputSchema
+    };
+    const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${data.name.replace(/\s+/g, '_')}_construct.json`;
+    a.download = `${fullData.name.replace(/\s+/g, '_')}_construct.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const onSubmit = async (data: ConstructFormData) => {
+  const onSubmit = async (data: Omit<ConstructFormData, 'output_schema'>) => {
     setIsLoading(true);
     try {
-      await onSave(data);
+      const fullData: ConstructFormData = {
+        ...data,
+        output_schema: outputSchema
+      };
+      await onSave(fullData);
       toast({
         title: "Construct saved",
         description: "Your construct template has been saved successfully.",
@@ -232,17 +257,18 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
                 <div>
                   <Label>Output Columns *</Label>
                   <div className="space-y-2 mt-2">
-                    {fields.map((field, index) => (
-                      <div key={field.id} className="flex gap-2">
+                    {outputSchema.map((field, index) => (
+                      <div key={index} className="flex gap-2">
                         <Input
-                          {...register(`output_schema.${index}`)}
+                          value={field}
+                          onChange={(e) => updateOutputField(index, e.target.value)}
                           placeholder="Column name"
                         />
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => remove(index)}
+                          onClick={() => removeOutputField(index)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -251,7 +277,7 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => append("")}
+                      onClick={addOutputField}
                       className="w-full"
                     >
                       <Plus className="h-4 w-4 mr-2" />
@@ -451,7 +477,7 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
                 <div>
                   <h4 className="font-semibold mb-2">CSV Headers</h4>
                   <div className="bg-gray-50 p-3 rounded border">
-                    {watch("output_schema").join(" | ")}
+                    {outputSchema.join(" | ")}
                   </div>
                 </div>
                 
@@ -477,7 +503,7 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
                 <div>
                   <h4 className="font-semibold mb-2">Sample Output Row</h4>
                   <div className="bg-gray-50 p-3 rounded border font-mono text-sm">
-                    {watch("output_schema").map((header, index) => (
+                    {outputSchema.map((header, index) => (
                       <div key={index} className="flex justify-between">
                         <span>{header}:</span>
                         <span className="text-gray-500">
