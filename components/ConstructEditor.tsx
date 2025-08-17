@@ -281,12 +281,9 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
                       className="w-full"
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Column
+                      Add Output Column
                     </Button>
                   </div>
-                  {errors.output_schema && (
-                    <p className="text-sm text-red-500 mt-1">{errors.output_schema.message}</p>
-                  )}
                 </div>
 
                 {/* Pattern Template */}
