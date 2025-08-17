@@ -2,12 +2,13 @@
 
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, File, X, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
-import { toast } from './ui/use-toast';
-import { apiEndpoints } from '../lib/api';
+import { Badge } from './ui/badge';
+import { Upload, FileText, CheckCircle, X, AlertCircle } from 'lucide-react';
+import { api, apiEndpoints } from '../lib/api';
+import { useToast } from './ui/use-toast';
 
 interface FileUploadProps {
   construct: any;
@@ -20,28 +21,22 @@ export function FileUpload({ construct, onUploadComplete, onBack }: FileUploadPr
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [jobData, setJobData] = useState<any>(null);
+  const { toast } = useToast();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (file && file.type === 'application/zip') {
-      setUploadedFile(file);
-      toast({
-        title: "File selected",
-        description: `${file.name} is ready for upload.`,
-      });
-    } else {
-      toast({
-        title: "Invalid file type",
-        description: "Please select a ZIP file containing your interview transcripts.",
-        variant: "destructive"
-      });
+    if (acceptedFiles.length > 0) {
+      setUploadedFile(acceptedFiles[0]);
     }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/zip': ['.zip']
+      'application/zip': ['.zip'],
+      'text/plain': ['.txt'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/pdf': ['.pdf'],
+      'text/markdown': ['.md']
     },
     multiple: false
   });
@@ -54,10 +49,13 @@ export function FileUpload({ construct, onUploadComplete, onBack }: FileUploadPr
 
     try {
       // Create job
-      const jobResponse = await apiEndpoints.jobs.create({
-        name: `Interview Processing - ${new Date().toLocaleDateString()}`,
-        description: `Processing ${uploadedFile.name} with ${construct.name} construct`,
-        custom_construct: construct
+      const jobResponse = await api(apiEndpoints.jobs.create, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: `Interview Processing - ${new Date().toLocaleDateString()}`,
+          description: `Processing ${uploadedFile.name} with ${construct.name} construct`,
+          custom_construct: construct
+        })
       });
 
       setJobData(jobResponse);
@@ -81,7 +79,9 @@ export function FileUpload({ construct, onUploadComplete, onBack }: FileUploadPr
       });
 
       // Mark upload complete
-      await apiEndpoints.jobs.uploadComplete(jobResponse.id);
+      await api(apiEndpoints.jobs.uploadComplete(jobResponse.id), {
+        method: 'POST'
+      });
 
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -176,7 +176,7 @@ export function FileUpload({ construct, onUploadComplete, onBack }: FileUploadPr
                 <div>
                   <h3 className="text-lg font-medium text-slate-900">File Ready</h3>
                   <div className="flex items-center justify-center space-x-2 mt-2">
-                    <File className="w-4 h-4 text-slate-400" />
+                    <FileText className="w-4 h-4 text-slate-400" />
                     <span className="text-slate-600">{uploadedFile.name}</span>
                     <span className="text-slate-400">
                       ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
