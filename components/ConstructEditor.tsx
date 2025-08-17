@@ -296,7 +296,7 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
                     rows={3}
                   />
                   <p className="text-sm text-gray-500 mt-1">
-                    Use {{variable}} syntax to define extractable fields
+                    Use {'{'}variable{'}'} syntax to define extractable fields
                   </p>
                   {errors.pattern && (
                     <p className="text-sm text-red-500 mt-1">{errors.pattern.message}</p>
