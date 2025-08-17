@@ -105,7 +105,7 @@ export function ConstructEditor({ onSave, initialData }: ConstructEditorProps) {
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: "output_schema"
+    name: "output_schema" as const
   });
 
   const watchedDefaults = watch("defaults");
