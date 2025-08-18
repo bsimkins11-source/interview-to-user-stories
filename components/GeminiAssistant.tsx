@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, Send, X, HelpCircle, Lightbulb, BookOpen, Zap, Target, FileText, Upload, Play, Download, Settings } from 'lucide-react';
-import { generateGeminiResponse, getStepSpecificGuidance, ChatContext } from '@/lib/gemini';
 import { useToast } from '@/components/ui/use-toast';
 
 interface GeminiAssistantProps {
@@ -59,6 +58,30 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
     setChatHistory([]);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('gemini-chat-history');
+    }
+  };
+
+  // Get step-specific guidance text
+  const getStepSpecificGuidance = (step: string): string => {
+    switch (step) {
+      case 'home':
+        return "I'm here to help you understand the app experience, process, and answer questions about your vectorized interview data. Ask me anything about how the Interview ETL works!";
+      case 'construct':
+        return "I can help you define your output structure and understand best practices for creating effective schemas.";
+      case 'upload':
+        return "I can guide you through the file upload process and explain supported formats and size limits.";
+      case 'process':
+        return "I can explain the AI processing pipeline and help you understand what's happening during extraction.";
+      case 'download':
+        return "I can help you understand the output formats and guide you through downloading your results.";
+      case 'userStories':
+        return "I can help you edit and refine your user stories, and explain best practices for story writing.";
+      case 'requirements_construct':
+        return "I can guide you through creating requirements and explain how they relate to user stories.";
+      case 'requirements':
+        return "I can help you review and refine your requirements, ensuring they're clear and actionable.";
+      default:
+        return "I'm here to help you with the Interview ETL process. Ask me anything about how it works!";
     }
   };
 
@@ -248,10 +271,10 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
     setChatHistory(prev => [...prev, newUserMessage]);
 
     try {
-      console.log('Sending message to Gemini:', userMessage);
+      console.log('Sending message to backend:', userMessage);
       
       // Create chat context
-      const chatContext: ChatContext = {
+      const chatContext = {
         currentStep,
         construct,
         userStories,
@@ -262,34 +285,43 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
 
       console.log('Chat context:', chatContext);
 
-      // Try to generate response using Gemini API
-      let geminiResponse;
-      try {
-        geminiResponse = await generateGeminiResponse(userMessage, chatContext);
-        console.log('Gemini response:', geminiResponse);
-      } catch (apiError) {
-        console.warn('Gemini API failed, using fallback:', apiError);
-        geminiResponse = { text: getFallbackResponse(userMessage) };
+      // Call backend API instead of frontend Gemini
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          context: chatContext
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+      console.log('Backend response:', data);
       
-      if (geminiResponse.error) {
-        // Handle Gemini API error, use fallback
+      if (data.error) {
+        // Handle backend error, use fallback
         const fallbackResponse = getFallbackResponse(userMessage);
         const assistantMessage = { type: 'assistant' as const, message: fallbackResponse, timestamp: new Date() };
         setChatHistory(prev => [...prev, assistantMessage]);
         
         toast({
           title: "Using Fallback Response",
-          description: "Gemini API unavailable, using built-in help system.",
+          description: "Backend AI service unavailable, using built-in help system.",
           variant: "default",
         });
       } else {
         // Add successful response to chat history
-        const assistantMessage = { type: 'assistant' as const, message: geminiResponse.text, timestamp: new Date() };
+        const assistantMessage = { type: 'assistant' as const, message: data.response, timestamp: new Date() };
         setChatHistory(prev => [...prev, assistantMessage]);
       }
     } catch (error) {
-      console.error('Error in handleSend:', error);
+      console.error('Error calling backend:', error);
       
       // Use fallback response as last resort
       const fallbackResponse = getFallbackResponse(userMessage);
@@ -298,7 +330,7 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
       
       toast({
         title: "Using Fallback Response",
-        description: "Using built-in help system due to technical issues.",
+        description: "Using built-in help system due to backend connection issues.",
         variant: "default",
       });
     } finally {
@@ -380,6 +412,9 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
         {/* Expandable Content */}
         {isOpen && (
           <CardContent className="pt-0 space-y-4">
+            {/* API Key Configuration */}
+            {/* Removed API key input section */}
+
             {/* How I Help Section */}
             <div className="bg-white rounded-lg p-4 border border-gray-200">
               <div className="flex items-center space-x-2 mb-3">

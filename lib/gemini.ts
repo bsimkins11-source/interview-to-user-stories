@@ -1,7 +1,31 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
+// Get API key from environment
+const getApiKey = (): string => {
+  if (typeof window !== 'undefined') {
+    // Client-side: try to get from window or localStorage as fallback
+    return (window as any).__GEMINI_API_KEY__ || localStorage.getItem('gemini-api-key') || '';
+  }
+  // Server-side: use process.env
+  return process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
+};
+
+// Initialize Gemini AI with dynamic API key
+let genAI: GoogleGenerativeAI | null = null;
+
+const initializeGemini = (): GoogleGenerativeAI | null => {
+  const apiKey = getApiKey();
+  if (!apiKey || apiKey === 'your-actual-gemini-api-key-here') {
+    return null;
+  }
+  
+  try {
+    return new GoogleGenerativeAI(apiKey);
+  } catch (error) {
+    console.error('Failed to initialize Gemini:', error);
+    return null;
+  }
+};
 
 // Knowledge base context for the Interview ETL application
 const KNOWLEDGE_BASE = `
@@ -61,9 +85,14 @@ export async function generateGeminiResponse(
   context: ChatContext
 ): Promise<GeminiResponse> {
   try {
-    if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
+    // Initialize Gemini if not already done
+    if (!genAI) {
+      genAI = initializeGemini();
+    }
+    
+    if (!genAI) {
       return {
-        text: "I'm sorry, but the Gemini AI service is not configured. Please check your API key configuration.",
+        text: "I'm sorry, but the Gemini AI service is not configured. Please check your API key configuration in the .env.local file.",
         error: "API key not configured"
       };
     }
