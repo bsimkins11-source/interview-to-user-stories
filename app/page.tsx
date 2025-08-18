@@ -66,18 +66,29 @@ export default function HomePage() {
   ];
 
   const canProceedToNext = () => {
-    switch (currentStep) {
-      case 'construct':
-        return construct !== null;
-      case 'upload':
-        return construct !== null && transcripts.length > 0;
-      case 'process':
-        return construct !== null && transcripts.length > 0;
-      case 'download':
-        return false;
-      default:
-        return false;
-    }
+    const canProceed = (() => {
+      switch (currentStep) {
+        case 'construct':
+          return construct !== null;
+        case 'upload':
+          return construct !== null && transcripts.length > 0;
+        case 'process':
+          return construct !== null && transcripts.length > 0;
+        case 'download':
+          return false;
+        default:
+          return false;
+      }
+    })();
+    
+    console.log('Navigation check:', {
+      currentStep,
+      construct: construct !== null,
+      transcriptsCount: transcripts.length,
+      canProceed
+    });
+    
+    return canProceed;
   };
 
   const canGoBack = () => {
@@ -102,15 +113,27 @@ export default function HomePage() {
 
   const handleConstructSave = async (newConstruct: Construct) => {
     try {
+      console.log('Saving construct:', newConstruct);
+      
       // Save construct to backend
       const savedConstruct = await createConstruct(newConstruct);
+      console.log('Construct saved successfully:', savedConstruct);
+      
+      // Set the construct state
       setConstruct(newConstruct);
+      console.log('Construct state updated:', newConstruct);
       
       toast({
         title: "Construct saved!",
         description: `Your output structure "${newConstruct.name}" has been defined with ${newConstruct.output_schema.length} fields.`,
       });
+      
+      // Debug: Check if we can proceed
+      console.log('Can proceed to next:', canProceedToNext());
+      console.log('Current construct state:', construct);
+      
     } catch (error) {
+      console.error('Error saving construct:', error);
       toast({
         title: "Error saving construct",
         description: error instanceof Error ? error.message : "Failed to save construct",
