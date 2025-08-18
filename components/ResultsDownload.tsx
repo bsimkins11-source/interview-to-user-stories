@@ -259,10 +259,19 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
       to: mode, 
       editableStoriesCount: editableStories.length,
       hasJobStories: !!jobStatus?.userStories,
-      jobStoriesCount: jobStatus?.userStories?.length || 0
+      jobStoriesCount: jobStatus?.userStories?.length || 0,
+      sampleStoriesCount: sampleUserStories.length,
+      getSampleUserStoriesCount: getSampleUserStories.length
     });
+    
+    // Force update editable stories if switching to edit mode and they're empty
+    if (mode === 'editable' && editableStories.length === 0) {
+      console.log('⚠️ Editable stories empty, populating with sample data');
+      setEditableStories(sampleUserStories);
+    }
+    
     setViewMode(mode);
-  }, [viewMode, editableStories.length, jobStatus?.userStories]);
+  }, [viewMode, editableStories.length, jobStatus?.userStories, sampleUserStories, getSampleUserStories.length]);
 
   // Optimized CSV generation with validation
   const generateCSVContent = useCallback((stories: UserStory[]): string => {
@@ -562,6 +571,38 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
             </div>
           </div>
         </CardHeader>
+        
+        {/* Debug info for development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mx-6 mb-4">
+            <div className="font-medium text-yellow-900 mb-2">🔍 Debug Info:</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="font-medium">View Mode:</span>
+                <div className="text-yellow-700">{viewMode}</div>
+              </div>
+              <div>
+                <span className="font-medium">Editable Stories:</span>
+                <div className="text-yellow-700">{editableStories.length}</div>
+              </div>
+              <div>
+                <span className="font-medium">Job Stories:</span>
+                <div className="text-yellow-700">{jobStatus?.userStories?.length || 0}</div>
+              </div>
+              <div>
+                <span className="font-medium">Sample Stories:</span>
+                <div className="text-yellow-700">{sampleUserStories.length}</div>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-yellow-600">
+              <div>getSampleUserStories: {getSampleUserStories.length}</div>
+              <div>jobStatus exists: {!!jobStatus ? 'Yes' : 'No'}</div>
+              <div>jobStatus.userStories exists: {!!jobStatus?.userStories ? 'Yes' : 'No'}</div>
+              <div>Check console for detailed logs</div>
+            </div>
+          </div>
+        )}
+        
         <CardContent>
           {viewMode === 'preview' ? (
             <div className="space-y-4">
@@ -710,30 +751,18 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Debug info for development */}
+              {/* Debug info for edit mode */}
               {process.env.NODE_ENV === 'development' && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                  <div className="font-medium text-yellow-900 mb-2">🔍 Debug Info:</div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">View Mode:</span>
-                      <div className="text-yellow-700">{viewMode}</div>
-                    </div>
-                    <div>
-                      <span className="font-medium">Editable Stories:</span>
-                      <div className="text-yellow-700">{editableStories.length}</div>
-                    </div>
-                    <div>
-                      <span className="font-medium">Job Stories:</span>
-                      <div className="text-yellow-700">{jobStatus?.userStories?.length || 0}</div>
-                    </div>
-                    <div>
-                      <span className="font-medium">Sample Stories:</span>
-                      <div className="text-yellow-700">{sampleUserStories.length}</div>
-                    </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+                  <div className="font-medium text-blue-900 mb-2">Edit Mode Debug:</div>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>View Mode: {viewMode}</div>
+                    <div>Editable Stories Count: {editableStories.length}</div>
+                    <div>Job Stories Count: {jobStatus?.userStories?.length || 0}</div>
+                    <div>Changes Made: {changesCount}</div>
                   </div>
-                  <div className="mt-2 text-xs text-yellow-600">
-                    Check console for detailed logs
+                  <div className="mt-2 text-xs text-blue-600">
+                    About to render EditableUserStoriesTable with {editableStories.length} stories
                   </div>
                 </div>
               )}
