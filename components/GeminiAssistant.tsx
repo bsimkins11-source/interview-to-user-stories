@@ -1,332 +1,283 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Send, Bot, Sparkles } from 'lucide-react';
-
-interface Message {
-  type: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+import { MessageCircle, Send, Sparkles, Lightbulb, BookOpen, Target, Zap } from 'lucide-react';
 
 interface GeminiAssistantProps {
   currentStep: string;
-  construct?: any;
+  construct: any;
   userStories: any[];
 }
 
 export function GeminiAssistant({ currentStep, construct, userStories }: GeminiAssistantProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      type: 'assistant',
-      content: "Hello! I'm your AI assistant for the Interview ETL process. I can help you with:\n\n• Understanding user story formats\n• Explaining the ETL process\n• Troubleshooting issues\n• Best practices for interview analysis\n\nWhat would you like to know?",
-      timestamp: new Date()
-    }
-  ]);
-  const [inputValue, setInputValue] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const getContextualSuggestions = () => {
+  const getStepContext = () => {
     switch (currentStep) {
       case 'construct':
-        return [
-          "How do I create a good user story template?",
-          "What fields should I include in my construct?",
-          "Can you show me an example user story structure?"
-        ];
+        return {
+          title: 'Define Your Output Structure',
+          description: 'I can help you design optimal schemas for user stories and requirements',
+          suggestions: [
+            'What fields should I include for user stories?',
+            'How do I structure requirements fields?',
+            'What are best practices for output schemas?'
+          ],
+          capabilities: [
+            'Schema Design Guidance',
+            'Field Optimization',
+            'Best Practices'
+          ]
+        };
       case 'upload':
-        return [
-          "What file formats do you support?",
-          "How do I prepare my interview transcripts?",
-          "Can I import from Google Drive or SharePoint?"
-        ];
+        return {
+          title: 'Upload Interview Transcripts',
+          description: 'I can help you prepare and organize your interview data',
+          suggestions: [
+            'What file formats work best?',
+            'How should I organize multiple interviews?',
+            'What makes for good interview data?'
+          ],
+          capabilities: [
+            'File Format Support',
+            'Data Organization',
+            'Quality Assessment'
+          ]
+        };
       case 'process':
-        return [
-          "How does the AI extraction work?",
-          "What affects the confidence scores?",
-          "How long does processing take?"
-        ];
+        return {
+          title: 'AI Processing & Analysis',
+          description: 'I can explain how the AI processes your transcripts and extracts insights',
+          suggestions: [
+            'How does the AI analyze my transcripts?',
+            'What context does it use for extraction?',
+            'How accurate are the results?'
+          ],
+          capabilities: [
+            'Process Explanation',
+            'Context Understanding',
+            'Accuracy Insights'
+          ]
+        };
       case 'download':
-        return [
-          "What's in the CSV output?",
-          "How do I use the results?",
-          "Can I export to other formats?"
-        ];
+        return {
+          title: 'Review & Download Results',
+          description: 'I can help you understand and validate the generated user stories',
+          suggestions: [
+            'How do I validate the extracted stories?',
+            'What if some stories seem incorrect?',
+            'How can I improve the results?'
+          ],
+          capabilities: [
+            'Result Validation',
+            'Quality Improvement',
+            'Troubleshooting'
+          ]
+        };
+      case 'requirements_construct':
+        return {
+          title: 'Define Requirements Structure',
+          description: 'I can help you design the perfect requirements schema',
+          suggestions: [
+            'What fields are essential for requirements?',
+            'How do I map user stories to requirements?',
+            'What priority systems work best?'
+          ],
+          capabilities: [
+            'Requirements Design',
+            'Mapping Strategies',
+            'Priority Systems'
+          ]
+        };
+      case 'requirements':
+        return {
+          title: 'Requirements Generation',
+          description: 'I can help you understand and refine the generated requirements',
+          suggestions: [
+            'How are requirements generated from stories?',
+            'How do I validate requirement quality?',
+            'Can I customize the conversion process?'
+          ],
+          capabilities: [
+            'Generation Process',
+            'Quality Validation',
+            'Customization'
+          ]
+        };
       default:
-        return [
-          "Tell me about user stories",
-          "How does the ETL process work?",
-          "What are best practices?"
-        ];
+        return {
+          title: 'AI Assistant',
+          description: 'I can help you with any aspect of the interview-to-requirements process',
+          suggestions: [
+            'How does this app work?',
+            'What are the best practices?',
+            'How can I get better results?'
+          ],
+          capabilities: [
+            'Process Guidance',
+            'Best Practices',
+            'Troubleshooting'
+          ]
+        };
     }
   };
 
-  const generateAIResponse = async (question: string, step: number, construct?: any, status?: string, stories?: any[]): Promise<string> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+  const context = getStepContext();
 
-    const questionLower = question.toLowerCase();
-    
-    // Context-aware responses based on current step and question
-    if (step === 1 && questionLower.includes('user story')) {
-      return `Great question! User stories follow the format: "As a [role], I need [capability] so that [benefit]." 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) return;
 
-For workflow management, focus on:
-• **Role**: Who needs this (e.g., "manager", "approver", "user")
-• **Capability**: What they need to do (e.g., "approve documents", "route requests")
-• **Benefit**: Why they need it (e.g., "to ensure compliance", "to streamline processes")
-
-Your construct template will help structure these into consistent output. Would you like me to help you create a specific template?`;
-    }
-
-    if (step === 2 && questionLower.includes('file format')) {
-      return `I support multiple file formats for interview transcripts:
-
-📁 **ZIP Archives**: Best for multiple files - just zip all your transcripts together
-📄 **Text Files (.txt)**: Plain text transcripts
-📝 **Word Documents (.docx)**: Microsoft Word files
-📋 **PDF Files (.pdf)**: Scanned or exported documents
-📖 **Markdown (.md)**: Structured text files
-
-**Pro Tips:**
-• ZIP files are most efficient for multiple documents
-• Ensure text is readable (not scanned images)
-• Include speaker labels if possible (e.g., "Interviewer:", "Subject:")
-• Remove sensitive information before upload
-
-What type of files do you have?`;
-    }
-
-    if (step === 3 && questionLower.includes('ai extraction')) {
-      return `The AI extraction process works in several stages:
-
-🧠 **Content Analysis**: I analyze your interview transcripts to identify workflow-related content
-🎯 **Pattern Recognition**: I look for user story patterns and requirements
-🏷️ **Categorization**: I automatically categorize content as workflow, DAM, or integration
-📊 **Scoring**: Each extracted story gets a confidence score
-
-**What I'm looking for:**
-• Workflow processes and approvals
-• User roles and responsibilities
-• System capabilities and requirements
-• Business rules and decision points
-
-The process typically takes 2-5 seconds per paragraph. You'll see real-time progress updates!`;
-    }
-
-    if (step === 4 && questionLower.includes('confidence score')) {
-      return `Confidence scores indicate how reliable each extracted user story is:
-
-🟢 **0.8-1.0 (High)**: Clear, well-structured requirements with good context
-🟡 **0.6-0.79 (Medium)**: Good requirements but may need minor clarification
-🟠 **0.4-0.59 (Low)**: Basic requirements that might benefit from review
-
-**Factors affecting scores:**
-• Clarity of the original text
-• Presence of user story format
-• Specificity of requirements
-• Context completeness
-
-**Recommendations:**
-• High confidence stories can be used directly
-• Medium confidence stories may need minor edits
-• Low confidence stories should be reviewed and enhanced
-
-Would you like me to help you improve any specific stories?`;
-    }
-
-    if (questionLower.includes('etl process')) {
-      return `The ETL (Extract, Transform, Load) process for interview transcripts works like this:
-
-📥 **Extract**: I process your interview files (TXT, DOCX, PDF, etc.) and extract the text content
-🔄 **Transform**: I use AI to identify user stories, categorize them, and structure them according to your template
-📤 **Load**: I generate a CSV file with all the extracted user stories, ready for your workflow management system
-
-**Key Benefits:**
-• **Consistency**: Same input always produces same output
-• **Efficiency**: Process hundreds of pages in minutes
-• **Quality**: AI-powered extraction with confidence scoring
-• **Flexibility**: Support for multiple input formats and sources
-
-This is perfect for converting stakeholder interviews into actionable requirements!`;
-    }
-
-    if (questionLower.includes('best practice')) {
-      return `Here are the best practices for successful interview-to-user-story conversion:
-
-📋 **Before Upload:**
-• Clean up transcripts (remove filler words, timestamps)
-• Ensure clear speaker identification
-• Remove sensitive or confidential information
-• Organize by topic or session
-
-📝 **During Processing:**
-• Use clear, specific construct templates
-• Review confidence scores before accepting
-• Validate extracted stories against original context
-• Keep original transcripts for reference
-
-📊 **After Extraction:**
-• Review low-confidence stories manually
-• Validate with stakeholders if needed
-• Organize stories by priority or category
-• Document any assumptions made
-
-**Pro Tip**: Start with a small batch to test your construct template before processing large volumes!`;
-    }
-
-    // Default response for general questions
-    return `I'm here to help with your Interview ETL process! 
-
-I can assist with:
-• **User Story Creation**: Help you define effective templates
-• **File Preparation**: Guide you on transcript formatting
-• **Process Understanding**: Explain how AI extraction works
-• **Best Practices**: Share tips for better results
-• **Troubleshooting**: Help resolve any issues
-
-What specific aspect would you like to learn more about?`;
-  };
-
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
-
-    const userMessage: Message = {
-      type: 'user',
-      content: inputValue,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
     setIsLoading(true);
-
-    try {
-      const stepNumber = currentStep === 'construct' ? 1 : 
-                        currentStep === 'upload' ? 2 : 
-                        currentStep === 'process' ? 3 : 
-                        currentStep === 'download' ? 4 : 1;
-
-      const response = await generateAIResponse(
-        inputValue,
-        stepNumber,
-        construct,
-        'active',
-        userStories
-      );
-
-      const assistantMessage: Message = {
-        type: 'assistant',
-        content: response,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage: Message = {
-        type: 'assistant',
-        content: "I'm sorry, I encountered an error. Please try again or rephrase your question.",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
+    // Simulate AI response
+    setTimeout(() => {
       setIsLoading(false);
-    }
-  };
-
-  const handleSuggestionClick = (suggestion: string) => {
-    setInputValue(suggestion);
+      setMessage('');
+    }, 2000);
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-blue-600" />
-          AI Assistant
-          <Badge variant="secondary" className="ml-2">
-            <Sparkles className="h-3 w-3 mr-1" />
-            Powered by Gemini
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Chat Messages */}
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                  message.type === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                }`}
-              >
-                <div className="whitespace-pre-wrap">{message.content}</div>
-                <div className={`text-xs mt-2 ${
-                  message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
-                }`}>
-                  {message.timestamp.toLocaleTimeString()}
+    <div className="relative">
+      {/* Floating Action Button */}
+      <Button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 z-50"
+      >
+        <MessageCircle className="w-8 h-8" />
+      </Button>
+
+      {/* Assistant Panel */}
+      {isOpen && (
+        <div className="fixed bottom-24 right-6 w-96 max-h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50">
+          <Card className="h-full">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                  <CardTitle className="text-lg">Gemini AI Assistant</CardTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ×
+                </Button>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Your AI companion for the interview-to-requirements journey
+              </p>
+            </CardHeader>
+
+            <CardContent className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+              {/* Current Step Context */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-center mb-2">
+                  <Target className="w-4 h-4 text-blue-600 mr-2" />
+                  <h3 className="font-semibold text-blue-900">{context.title}</h3>
+                </div>
+                <p className="text-sm text-blue-700 mb-3">{context.description}</p>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center text-xs text-blue-600">
+                    <Zap className="w-3 h-3 mr-1" />
+                    <span className="font-medium">Capabilities:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {context.capabilities.map((capability, index) => (
+                      <Badge key={index} variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-300">
+                        {capability}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 text-gray-900 rounded-lg px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  Thinking...
+
+              {/* Suggested Questions */}
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <div className="flex items-center mb-2">
+                  <Lightbulb className="w-4 h-4 text-purple-600 mr-2" />
+                  <h3 className="font-semibold text-purple-900">Suggested Questions</h3>
+                </div>
+                <div className="space-y-2">
+                  {context.suggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setMessage(suggestion)}
+                      className="block w-full text-left text-sm text-purple-700 hover:text-purple-900 hover:bg-purple-100 rounded px-2 py-1 transition-colors"
+                    >
+                      "{suggestion}"
+                    </button>
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
-        </div>
 
-        {/* Quick Suggestions */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Quick Questions:</Label>
-          <div className="flex flex-wrap gap-2">
-            {getContextualSuggestions().map((suggestion, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                size="sm"
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="text-xs"
-              >
-                {suggestion}
-              </Button>
-            ))}
-          </div>
-        </div>
+              {/* How I Help */}
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <div className="flex items-center mb-2">
+                  <BookOpen className="w-4 h-4 text-green-600 mr-2" />
+                  <h3 className="font-semibold text-green-900">How I Help You</h3>
+                </div>
+                <div className="space-y-2 text-sm text-green-700">
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                    <span>Provide step-by-step guidance for each phase</span>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                    <span>Explain AI processing and vectorization techniques</span>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                    <span>Suggest optimizations for better results</span>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                    <span>Help troubleshoot any issues you encounter</span>
+                  </div>
+                </div>
+              </div>
 
-        {/* Input */}
-        <div className="flex gap-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Ask me anything about the ETL process..."
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            disabled={isLoading}
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isLoading}
-            size="icon"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+              {/* Chat Input */}
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="flex space-x-2">
+                  <Input
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Ask me anything about the process..."
+                    className="flex-1"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={!message.trim() || isLoading}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    {isLoading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  I'm here to help you succeed with every step of your interview analysis!
+                </p>
+              </form>
+            </CardContent>
+          </Card>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

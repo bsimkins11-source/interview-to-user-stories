@@ -1,27 +1,51 @@
 import os
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
-from typing import List, Dict, Any
+from pydantic import ValidationError
+import logging
+import traceback
+from typing import List, Dict, Any, Optional
 import json
 import os
 from google.cloud import storage
 from google.cloud import firestore
 from datetime import datetime
 
-from models import JobCreate, JobResponse, ConstructCreate, ConstructResponse
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+# Import models and services
+from models import Construct, TranscriptInput, JobCreate, JobResponse, Requirement, UserStory, ProcessingResult
 from services.job_service import JobService
 from services.construct_service import ConstructService
 from services.storage_service import StorageService
 from services.external_import_service import ExternalImportService
 
-app = FastAPI(title="Interview ETL API", version="1.0.0")
+# Initialize FastAPI app
+app = FastAPI(
+    title="Interview ETL API",
+    description="AI-powered interview processing and user story generation",
+    version="1.0.0"
+)
 
-# CORS middleware
-origins = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if o.strip()]
+# CORS configuration
+CORS_ALLOW_ORIGINS = [
+    "http://localhost:3000",
+    "https://interview-etl-frontend.vercel.app"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["http://localhost:3000", "https://interview-etl-frontend.vercel.app"],
+    allow_origins=CORS_ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -36,71 +60,166 @@ external_import_service = ExternalImportService()
 # Initialize Firestore client for download endpoints
 firestore_client = firestore.Client()
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    try:
-        # Check if services are accessible
-        firestore_client = firestore.Client()
-        storage_client = storage.Client()
-        
-        return {
-            "status": "healthy", 
-            "service": "interview-etl-api",
-            "timestamp": datetime.utcnow().isoformat(),
-            "services": {
-                "firestore": "connected",
-                "storage": "connected"
-            }
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "service": "interview-etl-api", 
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-
+# Global exception handler for all unhandled exceptions
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    """Global exception handler for better error responses"""
+    """Global exception handler to provide consistent error responses"""
+    logger.error(f"Unhandled exception: {exc}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    
     return JSONResponse(
         status_code=500,
         content={
-            "detail": "Internal server error",
-            "error": str(exc),
+            "error": "Internal server error",
+            "message": "An unexpected error occurred",
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": str(request.url)
+        }
+    )
+
+# Validation error handler
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request, exc):
+    """Handle Pydantic validation errors"""
+    logger.warning(f"Validation error: {exc}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation error",
+            "message": "Invalid request data",
+            "details": exc.errors(),
             "timestamp": datetime.utcnow().isoformat()
         }
     )
 
-@app.post("/jobs", response_model=JobResponse)
-async def create_job(job: JobCreate):
-    """Create a new job and return job details"""
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Comprehensive health check endpoint"""
     try:
-        # Create job in Firestore
-        job_id = await job_service.create_job(job)
-        
-        # Get the created job
-        created_job = await job_service.get_job(job_id)
-        
+        # Test Firestore connection
+        firestore_status = "healthy"
+        try:
+            # Test basic Firestore operation
+            await job_service.get_job("test-connection")
+        except Exception as e:
+            firestore_status = f"degraded: {str(e)}"
+            logger.warning(f"Firestore health check failed: {e}")
+
+        # Test Storage connection
+        storage_status = "healthy"
+        try:
+            # Test basic Storage operation
+            await storage_service.get_bucket_info()
+        except Exception as e:
+            storage_status = f"degraded: {str(e)}"
+            logger.warning(f"Storage health check failed: {e}")
+
         return {
-            "id": job_id,
-            "name": created_job.get('name', ''),
-            "description": created_job.get('description', ''),
-            "status": created_job.get('status', 'CREATED'),
-            "construct": created_job.get('construct', {}),
-            "transcripts": created_job.get('transcripts', []),
-            "files": created_job.get('files', []),
-            "upload_url": None,  # Not needed for this flow
-            "csv_url": None,
-            "created_at": created_job.get('created_at'),
-            "updated_at": created_job.get('updated_at'),
-            "completed_at": None,
-            "error_message": None,
-            "metrics": None
+            "status": "healthy" if firestore_status == "healthy" and storage_status == "healthy" else "degraded",
+            "timestamp": datetime.utcnow().isoformat(),
+            "services": {
+                "firestore": firestore_status,
+                "storage": storage_status,
+                "api": "healthy"
+            },
+            "environment": {
+                "project_id": os.getenv("GOOGLE_CLOUD_PROJECT"),
+                "bucket_name": os.getenv("STORAGE_BUCKET_NAME"),
+                "gemini_available": bool(os.getenv("GEMINI_API_KEY")),
+                "openai_available": bool(os.getenv("OPENAI_API_KEY"))
+            }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Health check failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
+
+@app.post("/jobs", response_model=JobResponse)
+async def create_job(job_data: JobCreate):
+    """Create a new job with comprehensive validation and error handling"""
+    try:
+        logger.info(f"Creating new job: {job_data.name or 'Unnamed'}")
+        
+        # Validate job data
+        if not job_data.construct:
+            raise HTTPException(
+                status_code=400, 
+                detail="Construct is required"
+            )
+        
+        if not job_data.transcripts or len(job_data.transcripts) == 0:
+            raise HTTPException(
+                status_code=400, 
+                detail="At least one transcript is required"
+            )
+        
+        # Validate construct structure
+        if not isinstance(job_data.construct, dict):
+            raise HTTPException(
+                status_code=400, 
+                detail="Construct must be a valid object"
+            )
+        
+        required_construct_fields = ['name', 'output_schema', 'pattern']
+        for field in required_construct_fields:
+            if field not in job_data.construct:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Construct missing required field: {field}"
+                )
+        
+        # Validate transcripts
+        for i, transcript in enumerate(job_data.transcripts):
+            if not isinstance(transcript, dict):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Transcript at index {i} must be a valid object"
+                )
+            
+            required_transcript_fields = ['name', 'source']
+            for field in required_transcript_fields:
+                if field not in transcript or not transcript[field]:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Transcript at index {i} missing required field: {field}"
+                    )
+        
+        # Create job
+        job = await job_service.create_job(
+            name=job_data.name,
+            description=job_data.description,
+            construct=job_data.construct,
+            transcripts=job_data.transcripts
+        )
+        
+        logger.info(f"Job created successfully: {job.id}")
+        
+        return job
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error creating job: {e}")
+        raise HTTPException(
+            status_code=422, 
+            detail=f"Validation error: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error creating job: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500, 
+            detail="Failed to create job. Please try again."
+        )
 
 @app.post("/jobs/{job_id}/upload")
 async def upload_files_to_job(

@@ -35,18 +35,55 @@ export function RequirementsTable({ requirements, onRequirementsChange, onDownlo
   const handleSave = useCallback(() => {
     if (!editData) return;
 
-    const updatedRequirements = requirements.map(req =>
-      req.req_id === editData.req_id ? editData : req
-    );
+    // Validate required fields
+    if (!editData.requirement?.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Requirement text is required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    onRequirementsChange(updatedRequirements);
-    setEditingId(null);
-    setEditData(null);
+    if (!editData.req_details?.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Requirement details are required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    toast({
-      title: "Requirement updated",
-      description: "The requirement has been saved successfully.",
-    });
+    // Validate priority level
+    if (!['LOW', 'MEDIUM', 'HIGH'].includes(editData.priority_level)) {
+      toast({
+        title: "Validation Error",
+        description: "Priority level must be LOW, MEDIUM, or HIGH.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const updatedRequirements = requirements.map(req =>
+        req.req_id === editData.req_id ? editData : req
+      );
+
+      onRequirementsChange(updatedRequirements);
+      setEditingId(null);
+      setEditData(null);
+
+      toast({
+        title: "Requirement updated",
+        description: "The requirement has been saved successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save requirement. Please try again.",
+        variant: "destructive",
+      });
+    }
   }, [editData, requirements, onRequirementsChange, toast]);
 
   const handleCancel = useCallback(() => {
@@ -55,13 +92,21 @@ export function RequirementsTable({ requirements, onRequirementsChange, onDownlo
   }, []);
 
   const handleDelete = useCallback((reqId: string) => {
-    const updatedRequirements = requirements.filter(req => req.req_id !== reqId);
-    onRequirementsChange(updatedRequirements);
+    try {
+      const updatedRequirements = requirements.filter(req => req.req_id !== reqId);
+      onRequirementsChange(updatedRequirements);
 
-    toast({
-      title: "Requirement deleted",
-      description: "The requirement has been removed successfully.",
-    });
+      toast({
+        title: "Requirement deleted",
+        description: "The requirement has been removed successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete requirement. Please try again.",
+        variant: "destructive",
+      });
+    }
   }, [requirements, onRequirementsChange, toast]);
 
   const handlePriorityChange = useCallback((reqId: string, newPriority: 'LOW' | 'MEDIUM' | 'HIGH') => {

@@ -1,9 +1,11 @@
 import os
 import json
 import time
+import logging
 from datetime import datetime
+from typing import List, Dict, Any, Optional
 from google.cloud import storage, firestore, pubsub_v1
-from google.cloud.exceptions import NotFound
+from google.cloud.exceptions import NotFound, GoogleCloudError
 from dotenv import load_dotenv
 from processors.document_processor import DocumentProcessor
 from processors.extraction_engine import ExtractionEngine
@@ -11,6 +13,14 @@ from processors.requirements_converter import RequirementsConverter
 from processors.vector_processor import VectorProcessor
 from flask import Flask, request, jsonify
 import threading
+import asyncio
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -18,44 +28,102 @@ load_dotenv()
 # Initialize Flask app for Cloud Run compatibility
 app = Flask(__name__)
 
-# Initialize Google Cloud clients
-storage_client = storage.Client()
-firestore_client = firestore.Client()
-publisher = pubsub_v1.PublisherClient()
-subscriber = pubsub_v1.SubscriberClient()
+# Global variables for services
+storage_client: Optional[storage.Client] = None
+firestore_client: Optional[firestore.Client] = None
+publisher: Optional[pubsub_v1.PublisherClient] = None
+subscriber: Optional[pubsub_v1.SubscriberClient] = None
 
 # Initialize processors
-document_processor = DocumentProcessor()
-extraction_engine = ExtractionEngine(
-    gemini_api_key=os.getenv('GEMINI_API_KEY'),
-    openai_api_key=os.getenv('OPENAI_API_KEY')
-)
-requirements_converter = RequirementsConverter(
-    gemini_api_key=os.getenv('GEMINI_API_KEY')
-)
-vector_processor = VectorProcessor(
-    project_id=os.getenv('GOOGLE_CLOUD_PROJECT', 'interview-to-user-stories')
-)
+document_processor: Optional[DocumentProcessor] = None
+extraction_engine: Optional[ExtractionEngine] = None
+requirements_converter: Optional[RequirementsConverter] = None
+vector_processor: Optional[VectorProcessor] = None
 
-print("🚀 Interview ETL Worker initialized with AI processing pipeline!")
-print(f"📊 Document Processor: {'✅ Ready' if document_processor else '❌ Not ready'}")
-print(f"🤖 Extraction Engine: {'✅ Ready' if extraction_engine else '❌ Not ready'}")
-print(f"📋 Requirements Converter: {'✅ Ready' if requirements_converter else '❌ Not ready'}")
-print(f"🧠 Vector Processor: {'✅ Ready' if vector_processor else '❌ Not ready'}")
+def initialize_services():
+    """Initialize all Google Cloud services and processors with proper error handling"""
+    global storage_client, firestore_client, publisher, subscriber
+    global document_processor, extraction_engine, requirements_converter, vector_processor
+    
+    try:
+        # Initialize Google Cloud clients
+        storage_client = storage.Client()
+        firestore_client = firestore.Client()
+        publisher = pubsub_v1.PublisherClient()
+        subscriber = pubsub_v1.SubscriberClient()
+        
+        logger.info("✅ Google Cloud clients initialized successfully")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize Google Cloud clients: {e}")
+        raise
+    
+    try:
+        # Initialize processors
+        document_processor = DocumentProcessor()
+        extraction_engine = ExtractionEngine(
+            gemini_api_key=os.getenv('GEMINI_API_KEY'),
+            openai_api_key=os.getenv('OPENAI_API_KEY')
+        )
+        requirements_converter = RequirementsConverter(
+            gemini_api_key=os.getenv('GEMINI_API_KEY')
+        )
+        vector_processor = VectorProcessor(
+            project_id=os.getenv('GOOGLE_CLOUD_PROJECT', 'interview-to-user-stories')
+        )
+        
+        logger.info("✅ All processors initialized successfully")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize processors: {e}")
+        raise
+
+# Initialize services
+try:
+    initialize_services()
+    logger.info("🚀 Interview ETL Worker initialized with AI processing pipeline!")
+except Exception as e:
+    logger.error(f"❌ Failed to initialize worker: {e}")
+    # Don't raise here - let the app start but log the error
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint for Cloud Run"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
-        'services': {
+    """Health check endpoint for Cloud Run with comprehensive service status"""
+    try:
+        # Test Google Cloud services
+        services_status = {
             'document_processor': document_processor is not None,
             'extraction_engine': extraction_engine is not None,
             'requirements_converter': requirements_converter is not None,
-            'vector_processor': vector_processor is not None
+            'vector_processor': vector_processor is not None,
+            'storage_client': storage_client is not None,
+            'firestore_client': firestore_client is not None,
+            'publisher': publisher is not None,
+            'subscriber': subscriber is not None
         }
-    })
+        
+        # Check if all critical services are ready
+        all_ready = all(services_status.values())
+        
+        return jsonify({
+            'status': 'healthy' if all_ready else 'degraded',
+            'timestamp': datetime.utcnow().isoformat(),
+            'services': services_status,
+            'environment': {
+                'project_id': os.getenv('GOOGLE_CLOUD_PROJECT'),
+                'bucket_name': os.getenv('STORAGE_BUCKET_NAME'),
+                'gemini_available': bool(os.getenv('GEMINI_API_KEY')),
+                'openai_available': bool(os.getenv('OPENAI_API_KEY'))
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'error': str(e)
+        }), 500
 
 def download_and_extract(job_id: str):
     """Download and extract documents from Cloud Storage"""
@@ -90,46 +158,46 @@ def download_and_extract(job_id: str):
                     'size': blob.size
                 })
                 
-                print(f"Processed file: {filename} ({len(paragraphs)} paragraphs)")
+                logger.info(f"Processed file: {filename} ({len(paragraphs)} paragraphs)")
                 
             except Exception as e:
-                print(f"Error processing file {blob.name}: {str(e)}")
+                logger.error(f"Error processing file {blob.name}: {str(e)}")
                 continue
         
         if not documents:
             raise Exception(f"No documents found for job {job_id}")
         
-        print(f"Successfully processed {len(documents)} documents")
+        logger.info(f"Successfully processed {len(documents)} documents")
         return documents
         
     except Exception as e:
-        print(f"Error downloading documents: {str(e)}")
+        logger.error(f"Error downloading documents: {str(e)}")
         raise
 
-def process_documents_with_ai(documents, construct):
+async def process_documents_with_ai(documents: List[Dict[str, Any]], construct: Dict[str, Any]):
     """Process documents using AI to extract user stories with vectorization"""
     try:
-        print("🤖 Starting AI-powered document processing with vectorization...")
+        logger.info("🤖 Starting AI-powered document processing with vectorization...")
         
         # Step 1: Vectorize transcripts for enhanced context
-        print("🧠 Step 1: Vectorizing interview transcripts...")
-        vectorization_result = vector_processor.vectorize_transcripts(documents)
+        logger.info("🧠 Step 1: Vectorizing interview transcripts...")
+        vectorization_result = await vector_processor.vectorize_transcripts(documents)
         
         if vectorization_result.get('vectorized'):
-            print(f"✅ Successfully vectorized {vectorization_result['total_chunks']} chunks")
+            logger.info(f"✅ Successfully vectorized {vectorization_result['total_chunks']} chunks")
             vectorized_chunks = vectorization_result['chunks']
         else:
-            print("⚠️ Vectorization failed, using original documents")
+            logger.warning("⚠️ Vectorization failed, using original documents")
             vectorized_chunks = documents
         
         # Step 2: Process documents to extract text and structure
         processed_docs = document_processor.process_documents(documents, construct)
-        print(f"📄 Processed {len(processed_docs)} documents")
+        logger.info(f"📄 Processed {len(processed_docs)} documents")
         
         # Step 3: Extract user stories using AI with enhanced context
         all_stories = []
         for doc in processed_docs:
-            print(f"🧠 AI analyzing document: {doc.get('filename', 'Unknown')}")
+            logger.info(f"🧠 AI analyzing document: {doc.get('filename', 'Unknown')}")
             
             # Extract stories from each paragraph
             for i, paragraph in enumerate(doc.get('paragraphs', [])):
@@ -151,33 +219,33 @@ def process_documents_with_ai(documents, construct):
                     
                     if story:
                         all_stories.append(story)
-                        print(f"✅ Extracted story: {story.get('User Story', 'Unknown')[:50]}...")
+                        logger.info(f"✅ Extracted story: {story.get('User Story', 'Unknown')[:50]}...")
         
-        print(f"🎯 Total user stories extracted: {len(all_stories)}")
+        logger.info(f"🎯 Total user stories extracted: {len(all_stories)}")
         return all_stories
         
     except Exception as e:
-        print(f"Error in AI document processing: {str(e)}")
+        logger.error(f"Error in AI document processing: {str(e)}")
         raise
 
-def convert_stories_to_requirements(user_stories, user_stories_construct):
+def convert_stories_to_requirements(user_stories: List[Dict[str, Any]], user_stories_construct: Dict[str, Any], vectorized_chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Convert user stories to requirements using Gemini AI with both constructs"""
     try:
-        print("🔄 Starting requirements conversion with Gemini AI...")
-        print(f"📊 User stories construct: {user_stories_construct.get('name', 'Unknown') if user_stories_construct else 'None'}")
-        print(f"📋 Requirements construct: {requirements_converter.requirements_construct.get('name', 'Unknown') if requirements_converter.requirements_construct else 'None'}")
+        logger.info("🔄 Starting requirements conversion with Gemini AI...")
+        logger.info(f"📊 User stories construct: {user_stories_construct.get('name', 'Unknown') if user_stories_construct else 'None'}")
+        logger.info(f"📋 Requirements construct: {requirements_converter.requirements_construct.get('name', 'Unknown') if requirements_converter.requirements_construct else 'None'}")
         
         # Use the requirements converter to generate requirements
-        requirements = requirements_converter.convert_stories_to_requirements(user_stories, user_stories_construct)
+        requirements = requirements_converter.convert_stories_to_requirements(user_stories, user_stories_construct, vectorized_chunks)
         
-        print(f"📋 Successfully converted {len(user_stories)} stories to {len(requirements)} requirements")
+        logger.info(f"📋 Successfully converted {len(user_stories)} stories to {len(requirements)} requirements")
         return requirements
         
     except Exception as e:
-        print(f"Error converting stories to requirements: {str(e)}")
+        logger.error(f"Error converting stories to requirements: {str(e)}")
         raise
 
-def generate_and_upload_csv(user_stories, requirements, job_id: str):
+def generate_and_upload_csv(user_stories: List[Dict[str, Any]], requirements: List[Dict[str, Any]], job_id: str):
     """Generate CSV files for both user stories and requirements"""
     try:
         bucket = storage_client.bucket(os.getenv('STORAGE_BUCKET_NAME', 'interview-to-user-stories-data'))
@@ -188,7 +256,7 @@ def generate_and_upload_csv(user_stories, requirements, job_id: str):
             stories_blob = bucket.blob(f"results/{job_id}/user_stories.csv")
             stories_blob.upload_from_string(stories_csv, content_type='text/csv')
             stories_url = f"gs://{bucket.name}/results/{job_id}/user_stories.csv"
-            print(f"✅ User stories CSV uploaded: {stories_url}")
+            logger.info(f"✅ User stories CSV uploaded: {stories_url}")
         
         # Generate requirements CSV
         if requirements:
@@ -196,7 +264,7 @@ def generate_and_upload_csv(user_stories, requirements, job_id: str):
             requirements_blob = bucket.blob(f"results/{job_id}/requirements.csv")
             requirements_blob.upload_from_string(requirements_csv, content_type='text/csv')
             requirements_url = f"gs://{bucket.name}/results/{job_id}/requirements.csv"
-            print(f"✅ Requirements CSV uploaded: {requirements_url}")
+            logger.info(f"✅ Requirements CSV uploaded: {requirements_url}")
         
         return {
             'stories_csv_url': stories_url if user_stories else None,
@@ -204,10 +272,10 @@ def generate_and_upload_csv(user_stories, requirements, job_id: str):
         }
         
     except Exception as e:
-        print(f"Error generating and uploading CSV files: {str(e)}")
+        logger.error(f"Error generating and uploading CSV files: {str(e)}")
         raise
 
-def generate_stories_csv(user_stories):
+def generate_stories_csv(user_stories: List[Dict[str, Any]]) -> str:
     """Generate CSV content for user stories"""
     if not user_stories:
         return ""
@@ -231,7 +299,7 @@ def generate_stories_csv(user_stories):
     
     return '\n'.join(csv_lines)
 
-def generate_requirements_csv(requirements):
+def generate_requirements_csv(requirements: List[Dict[str, Any]]) -> str:
     """Generate CSV content for requirements"""
     if not requirements:
         return ""
@@ -258,7 +326,7 @@ def generate_requirements_csv(requirements):
 def process_job(job_id: str):
     """Main job processing function"""
     try:
-        print(f"🚀 Starting job processing for job ID: {job_id}")
+        logger.info(f"🚀 Starting job processing for job ID: {job_id}")
         start_time = time.time()
         
         # Update job status to processing
@@ -269,7 +337,7 @@ def process_job(job_id: str):
         })
         
         # Step 1: Download and extract documents
-        print("📥 Step 1: Downloading and extracting documents...")
+        logger.info("📥 Step 1: Downloading and extracting documents...")
         documents = download_and_extract(job_id)
         
         # Step 2: Get job details from Firestore
@@ -282,22 +350,28 @@ def process_job(job_id: str):
         requirements_construct = job_data.get('requirements_construct', {})
         
         # Step 3: Process documents with AI to extract user stories
-        print("🤖 Step 2: Processing documents with AI...")
-        user_stories = process_documents_with_ai(documents, construct)
+        logger.info("🤖 Step 2: Processing documents with AI...")
+        user_stories = asyncio.run(process_documents_with_ai(documents, construct))
+        
+        # Get vectorized chunks for requirements processing
+        vectorized_chunks = []
+        try:
+            vectorization_result = asyncio.run(vector_processor.vectorize_transcripts(documents))
+            if vectorization_result.get('vectorized'):
+                vectorized_chunks = vectorization_result['chunks']
+                logger.info(f"✅ Retrieved {len(vectorized_chunks)} vectorized chunks for requirements")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to get vectorized chunks for requirements: {e}")
+            vectorized_chunks = []
         
         # Step 4: Convert user stories to requirements using Gemini AI
-        print("🔄 Step 3: Converting user stories to requirements...")
-        
-        # Update requirements converter with the requirements construct
-        if requirements_construct:
-            requirements_converter.requirements_construct = requirements_construct
-            print(f"📋 Using requirements construct: {requirements_construct.get('name', 'Unknown')}")
+        logger.info("🔄 Step 3: Converting user stories to requirements...")
         
         # Pass vectorized chunks for enhanced context
         requirements = convert_stories_to_requirements(user_stories, construct, vectorized_chunks)
         
         # Step 5: Generate and upload CSV files
-        print("📊 Step 4: Generating and uploading results...")
+        logger.info("�� Step 4: Generating and uploading results...")
         csv_urls = generate_and_upload_csv(user_stories, requirements, job_id)
         
         # Step 6: Update job with results
@@ -313,12 +387,12 @@ def process_job(job_id: str):
             'updated_at': datetime.utcnow()
         })
         
-        print(f"✅ Job {job_id} completed successfully!")
-        print(f"📊 Results: {len(user_stories)} user stories, {len(requirements)} requirements")
-        print(f"⏱️ Processing time: {processing_time:.2f} seconds")
+        logger.info(f"✅ Job {job_id} completed successfully!")
+        logger.info(f"📊 Results: {len(user_stories)} user stories, {len(requirements)} requirements")
+        logger.info(f"⏱️ Processing time: {processing_time:.2f} seconds")
         
     except Exception as e:
-        print(f"❌ Error processing job {job_id}: {str(e)}")
+        logger.error(f"❌ Error processing job {job_id}: {str(e)}")
         
         # Update job status to failed
         try:
@@ -329,11 +403,11 @@ def process_job(job_id: str):
                 'updated_at': datetime.utcnow()
             })
         except Exception as update_error:
-            print(f"Failed to update job status: {update_error}")
+            logger.error(f"Failed to update job status: {update_error}")
 
 def start_worker():
     """Start the background worker process"""
-    print("🔄 Starting background worker process...")
+    logger.info("🔄 Starting background worker process...")
     
     subscription_path = subscriber.subscription_path(
         os.getenv('PUBSUB_PROJECT_ID', 'interview-to-user-stories'),
@@ -346,26 +420,26 @@ def start_worker():
             job_id = data.get('job_id')
             
             if job_id:
-                print(f"📨 Received job message: {job_id}")
+                logger.info(f"📨 Received job message: {job_id}")
                 process_job(job_id)
                 message.ack()
             else:
-                print("⚠️ Invalid job message format")
+                logger.warning("⚠️ Invalid job message format")
                 message.nack()
                 
         except Exception as e:
-            print(f"❌ Error processing message: {e}")
+            logger.error(f"❌ Error processing message: {e}")
             message.nack()
     
     # Start listening for messages
     streaming_pull_future = subscriber.subscribe(subscription_path, callback=callback)
-    print("👂 Listening for job messages...")
+    logger.info("👂 Listening for job messages...")
     
     try:
         streaming_pull_future.result()
     except KeyboardInterrupt:
         streaming_pull_future.cancel()
-        print("🛑 Worker stopped by user")
+        logger.info("🛑 Worker stopped by user")
 
 if __name__ == "__main__":
     # Start worker in background thread

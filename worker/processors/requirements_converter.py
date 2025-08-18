@@ -1,8 +1,12 @@
 import os
+import logging
 import uuid
 from typing import List, Dict, Any, Optional
 from google.generativeai import GenerativeModel
 import google.generativeai as genai
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class RequirementsConverter:
     """Convert user stories into structured requirements using advanced Gemini AI analysis"""
@@ -15,53 +19,53 @@ class RequirementsConverter:
             try:
                 genai.configure(api_key=gemini_api_key)
                 self.gemini_model = GenerativeModel('gemini-pro')
-                print("🚀 Requirements converter initialized with Gemini AI - Ready for intelligent analysis!")
+                logger.info("🚀 Requirements converter initialized with Gemini AI - Ready for intelligent analysis!")
                 if requirements_construct:
-                    print(f"📋 Using requirements construct: {requirements_construct.get('name', 'Unknown')} with {len(requirements_construct.get('output_schema', []))} fields")
+                    logger.info(f"📋 Using requirements construct: {requirements_construct.get('name', 'Unknown')} with {len(requirements_construct.get('output_schema', []))} fields")
             except Exception as e:
-                print(f"⚠️ Failed to initialize Gemini for requirements conversion: {e}")
+                logger.error(f"⚠️ Failed to initialize Gemini for requirements conversion: {e}")
                 self.gemini_model = None
         else:
-            print("❌ No Gemini API key provided - requirements conversion will use basic patterns")
+            logger.warning("❌ No Gemini API key provided - requirements conversion will use basic patterns")
     
     def convert_stories_to_requirements(self, user_stories: List[Dict[str, Any]], user_stories_construct: Optional[Dict[str, Any]] = None, vectorized_chunks: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """Convert user stories to requirements using Gemini AI analysis with both constructs and vectorized context"""
         if not self.gemini_model:
-            print("⚠️ Gemini AI not available - falling back to basic pattern matching")
+            logger.warning("⚠️ Gemini AI not available - falling back to basic pattern matching")
             return self._convert_with_patterns_batch(user_stories)
         
-        print(f"🤖 Gemini AI analyzing {len(user_stories)} user stories for requirements conversion...")
-        print(f"📊 User stories construct: {user_stories_construct.get('name', 'Unknown') if user_stories_construct else 'None'}")
-        print(f"📋 Requirements construct: {self.requirements_construct.get('name', 'Unknown') if self.requirements_construct else 'None'}")
-        print(f"🧠 Vectorized context: {len(vectorized_chunks) if vectorized_chunks else 0} chunks available")
+        logger.info(f"🤖 Gemini AI analyzing {len(user_stories)} user stories for requirements conversion...")
+        logger.info(f"📊 User stories construct: {user_stories_construct.get('name', 'Unknown') if user_stories_construct else 'None'}")
+        logger.info(f"📋 Requirements construct: {self.requirements_construct.get('name', 'Unknown') if self.requirements_construct else 'None'}")
+        logger.info(f"🧠 Vectorized context: {len(vectorized_chunks) if vectorized_chunks else 0} chunks available")
         
         requirements = []
         
         for i, story in enumerate(user_stories, 1):
             try:
-                print(f"📋 Processing story {i}/{len(user_stories)}: {story.get('User Story', 'Unknown')[:50]}...")
+                logger.info(f"📋 Processing story {i}/{len(user_stories)}: {story.get('User Story', 'Unknown')[:50]}...")
                 
                 # Get relevant context chunks for this story
                 context_chunks = []
                 if vectorized_chunks:
                     context_chunks = self._get_context_for_story(story, vectorized_chunks)
-                    print(f"🔍 Found {len(context_chunks)} relevant context chunks for story {i}")
+                    logger.info(f"🔍 Found {len(context_chunks)} relevant context chunks for story {i}")
                 
                 # Use Gemini to intelligently convert the story using both constructs and context
                 story_requirements = self._convert_with_gemini_intelligence(story, user_stories_construct, context_chunks)
                 requirements.extend(story_requirements)
                 
-                print(f"✅ Story {i} converted to {len(story_requirements)} requirements")
+                logger.info(f"✅ Story {i} converted to {len(story_requirements)} requirements")
                 
             except Exception as e:
-                print(f"❌ Error converting story {i}: {e}")
+                logger.error(f"❌ Error converting story {i}: {e}")
                 # Fallback to pattern-based conversion for this story
                 fallback_reqs = self._convert_with_patterns(story)
                 requirements.extend(fallback_reqs)
-                print(f"🔄 Used fallback conversion for story {i}")
+                logger.info(f"🔄 Used fallback conversion for story {i}")
                 continue
         
-        print(f"🎯 Gemini AI successfully generated {len(requirements)} total requirements!")
+        logger.info(f"🎯 Gemini AI successfully generated {len(requirements)} total requirements!")
         return requirements
     
     def _convert_with_gemini_intelligence(self, story: Dict[str, Any], user_stories_construct: Optional[Dict[str, Any]] = None, context_chunks: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
@@ -80,7 +84,7 @@ class RequirementsConverter:
             # Build advanced AI prompt for intelligent requirements analysis
             prompt = self._build_intelligent_requirements_prompt(story_text, capability, snippet, team, category, user_stories_construct, context_chunks)
             
-            print(f"🧠 Gemini analyzing: {story_text[:100]}...")
+            logger.info(f"🧠 Gemini analyzing: {story_text[:100]}...")
             
             # Generate requirements using Gemini with enhanced configuration
             response = self.gemini_model.generate_content(
@@ -94,7 +98,7 @@ class RequirementsConverter:
             )
             
             requirements_text = response.text
-            print(f"💡 Gemini generated response: {requirements_text[:200]}...")
+            logger.info(f"💡 Gemini generated response: {requirements_text[:200]}...")
             
             # Parse the AI response into structured requirements
             requirements = self._parse_intelligent_requirements_response(requirements_text, story, self.requirements_construct)
@@ -102,7 +106,7 @@ class RequirementsConverter:
             return requirements
             
         except Exception as e:
-            print(f"⚠️ Gemini AI conversion failed: {e}")
+            logger.error(f"⚠️ Gemini AI conversion failed: {e}")
             return self._convert_with_patterns(story)
     
     def _build_intelligent_requirements_prompt(self, story_text: str, capability: str, snippet: str, team: str, category: str, user_stories_construct: Optional[Dict[str, Any]] = None, context_chunks: Optional[List[Dict[str, Any]]] = None) -> str:
@@ -344,5 +348,5 @@ REQ-DETAILS: [comprehensive specification with acceptance criteria]
             return [chunk for _, chunk in similarities[:context_window]]
             
         except Exception as e:
-            print(f"⚠️ Error getting context for story: {e}")
+            logger.error(f"⚠️ Error getting context for story: {e}")
             return []

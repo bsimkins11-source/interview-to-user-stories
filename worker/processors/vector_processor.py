@@ -1,10 +1,15 @@
 import os
+import logging
 from typing import List, Dict, Any, Optional
 from google.cloud import aiplatform
 from google.cloud.aiplatform import MatchingEngineIndex, MatchingEngineIndexEndpoint
 import vertexai
 from vertexai.language_models import TextEmbeddingModel
 import numpy as np
+import asyncio
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class VectorProcessor:
     """Process transcripts using Vertex AI vectorization for enhanced Gemini processing"""
@@ -20,19 +25,19 @@ class VectorProcessor:
             # Initialize Vertex AI
             vertexai.init(project=project_id, location=location)
             self.embedding_model = TextEmbeddingModel.from_pretrained("textembedding-gecko@003")
-            print("✅ Vertex AI vector processor initialized successfully")
+            logger.info("✅ Vertex AI vector processor initialized successfully")
         except Exception as e:
-            print(f"⚠️ Failed to initialize Vertex AI: {e}")
+            logger.error(f"⚠️ Failed to initialize Vertex AI: {e}")
             self.embedding_model = None
     
-    def vectorize_transcripts(self, transcripts: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def vectorize_transcripts(self, transcripts: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Vectorize interview transcripts for enhanced AI processing"""
         if not self.embedding_model:
-            print("⚠️ Vertex AI not available, skipping vectorization")
+            logger.warning("⚠️ Vertex AI not available, skipping vectorization")
             return {"vectorized": False, "chunks": transcripts}
         
         try:
-            print(f"🧠 Vectorizing {len(transcripts)} transcripts...")
+            logger.info(f"🧠 Vectorizing {len(transcripts)} transcripts...")
             
             vectorized_chunks = []
             
@@ -42,7 +47,7 @@ class VectorProcessor:
                 
                 for i, chunk in enumerate(chunks):
                     # Generate embeddings for each chunk
-                    embedding = self._generate_embedding(chunk['text'])
+                    embedding = await self._generate_embedding(chunk['text'])
                     
                     vectorized_chunk = {
                         'id': f"{transcript.get('filename', 'unknown')}_chunk_{i}",
@@ -59,7 +64,7 @@ class VectorProcessor:
                     }
                     vectorized_chunks.append(vectorized_chunk)
             
-            print(f"✅ Successfully vectorized {len(vectorized_chunks)} chunks")
+            logger.info(f"✅ Successfully vectorized {len(vectorized_chunks)} chunks")
             
             return {
                 "vectorized": True,
@@ -69,7 +74,7 @@ class VectorProcessor:
             }
             
         except Exception as e:
-            print(f"❌ Error during vectorization: {e}")
+            logger.error(f"❌ Error during vectorization: {e}")
             return {"vectorized": False, "chunks": transcripts, "error": str(e)}
     
     def _create_semantic_chunks(self, transcript: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -118,13 +123,13 @@ class VectorProcessor:
         
         return chunks
     
-    def _generate_embedding(self, text: str) -> List[float]:
+    async def _generate_embedding(self, text: str) -> List[float]:
         """Generate text embedding using Vertex AI"""
         try:
             embeddings = self.embedding_model.get_embeddings([text])
             return embeddings[0].values
         except Exception as e:
-            print(f"⚠️ Error generating embedding: {e}")
+            logger.error(f"⚠️ Error generating embedding: {e}")
             # Return zero vector as fallback
             return [0.0] * 768  # Gecko model dimension
     
@@ -135,7 +140,7 @@ class VectorProcessor:
         
         try:
             # Generate query embedding
-            query_embedding = self._generate_embedding(query)
+            query_embedding = asyncio.run(self._generate_embedding(query))
             
             # Calculate similarities
             similarities = []
@@ -149,7 +154,7 @@ class VectorProcessor:
             return [chunk for _, chunk in similarities[:top_k]]
             
         except Exception as e:
-            print(f"⚠️ Error finding similar chunks: {e}")
+            logger.error(f"⚠️ Error finding similar chunks: {e}")
             return chunks[:top_k]
     
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
@@ -166,7 +171,8 @@ class VectorProcessor:
                 return 0.0
             
             return dot_product / (norm1 * norm2)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error calculating cosine similarity: {e}")
             return 0.0
     
     def get_context_for_extraction(self, user_story: str, chunks: List[Dict[str, Any]], context_window: int = 3) -> List[Dict[str, Any]]:
@@ -174,43 +180,49 @@ class VectorProcessor:
         if not chunks:
             return []
         
-        # Find most similar chunks to the user story
-        similar_chunks = self.find_similar_chunks(user_story, chunks, top_k=context_window)
-        
-        # Add surrounding context
-        context_chunks = []
-        for chunk in similar_chunks:
-            context_chunks.append(chunk)
+        try:
+            # Find most similar chunks to the user story
+            similar_chunks = self.find_similar_chunks(user_story, chunks, top_k=context_window)
             
-            # Add chunks from the same transcript for context
-            chunk_metadata = chunk.get('metadata', {})
-            filename = chunk_metadata.get('filename', '')
-            chunk_index = chunk_metadata.get('chunk_index', 0)
+            # Add surrounding context
+            context_chunks = []
+            for chunk in similar_chunks:
+                context_chunks.append(chunk)
+                
+                # Add chunks from the same transcript for context
+                chunk_metadata = chunk.get('metadata', {})
+                filename = chunk_metadata.get('filename', '')
+                chunk_index = chunk_metadata.get('chunk_index', 0)
+                
+                # Find chunks from the same transcript
+                same_transcript_chunks = [
+                    c for c in chunks 
+                    if c.get('metadata', {}).get('filename') == filename
+                ]
+                
+                # Add surrounding chunks
+                for i in range(max(0, chunk_index - 1), min(len(same_transcript_chunks), chunk_index + 2)):
+                    if i != chunk_index and same_transcript_chunks[i] not in context_chunks:
+                        context_chunks.append(same_transcript_chunks[i])
             
-            # Find chunks from the same transcript
-            same_transcript_chunks = [
-                c for c in chunks 
-                if c.get('metadata', {}).get('filename') == filename
-            ]
+            return context_chunks[:context_window * 2]  # Limit total context
             
-            # Add surrounding chunks
-            for i in range(max(0, chunk_index - 1), min(len(same_transcript_chunks), chunk_index + 2)):
-                if i != chunk_index and same_transcript_chunks[i] not in context_chunks:
-                    context_chunks.append(same_transcript_chunks[i])
-        
-        return context_chunks[:context_window * 2]  # Limit total context
+        except Exception as e:
+            logger.error(f"Error getting context for extraction: {e}")
+            return []
     
     def enhance_extraction_prompt(self, base_prompt: str, context_chunks: List[Dict[str, Any]]) -> str:
         """Enhance extraction prompt with vectorized context"""
         if not context_chunks:
             return base_prompt
         
-        context_text = "\n\n".join([
-            f"CONTEXT CHUNK {i+1} (from {chunk.get('metadata', {}).get('filename', 'unknown')}):\n{chunk['text']}"
-            for i, chunk in enumerate(context_chunks)
-        ])
-        
-        enhanced_prompt = f"""
+        try:
+            context_text = "\n\n".join([
+                f"CONTEXT CHUNK {i+1} (from {chunk.get('metadata', {}).get('filename', 'unknown')}):\n{chunk['text']}"
+                for i, chunk in enumerate(context_chunks)
+            ])
+            
+            enhanced_prompt = f"""
 {base_prompt}
 
 RELEVANT CONTEXT FROM INTERVIEWS:
@@ -218,5 +230,9 @@ RELEVANT CONTEXT FROM INTERVIEWS:
 
 Use this context to provide more accurate and detailed extraction. Consider the relationships between different parts of the interviews and how they inform the user story or requirement.
 """
-        
-        return enhanced_prompt
+            
+            return enhanced_prompt
+            
+        except Exception as e:
+            logger.error(f"Error enhancing extraction prompt: {e}")
+            return base_prompt

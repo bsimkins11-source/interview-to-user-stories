@@ -6,6 +6,9 @@ from typing import List, Dict, Any, Optional
 from google.generativeai import GenerativeModel
 import openai
 import google.generativeai as genai
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ExtractionEngine:
     """AI-powered extraction engine for user stories and requirements"""
@@ -170,18 +173,18 @@ PRIORITY RULES: {'; '.join(priority_rules)}
     async def extract_story_from_text_with_context(self, text: str, doc: Dict[str, Any], paragraph_index: int, context_chunks: List[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         """Extract user story using Gemini AI with enhanced context from vectorized chunks"""
         if not self.gemini_model:
-            print("Gemini model not available, falling back to pattern matching")
+            logger.warning("Gemini model not available, falling back to pattern matching")
             return self._extract_with_patterns(text, doc, paragraph_index)
             
         prompt = self._build_extraction_prompt_with_context(text, doc, paragraph_index, context_chunks)
         
         # Log the analysis process
-        print(f"\n🤖 GEMINI ANALYSIS WITH CONTEXT STARTED")
-        print(f"📄 Document: {doc.get('filename', 'Unknown')}")
-        print(f"📝 Paragraph: {paragraph_index + 1}")
-        print(f"📊 Text Length: {len(text)} characters")
-        print(f"🔍 Context Chunks: {len(context_chunks) if context_chunks else 0}")
-        print(f"📊 Text Preview: {text[:100]}...")
+        logger.info(f"\n🤖 GEMINI ANALYSIS WITH CONTEXT STARTED")
+        logger.info(f"📄 Document: {doc.get('filename', 'Unknown')}")
+        logger.info(f"📝 Paragraph: {paragraph_index + 1}")
+        logger.info(f"📊 Text Length: {len(text)} characters")
+        logger.info(f"🔍 Context Chunks: {len(context_chunks) if context_chunks else 0}")
+        logger.info(f"📊 Text Preview: {text[:100]}...")
         
         try:
             # Generate content using Gemini with enhanced configuration
@@ -196,23 +199,68 @@ PRIORITY RULES: {'; '.join(priority_rules)}
             )
             
             response_text = response.text
-            print(f"💡 Gemini generated response: {response_text[:200]}...")
+            logger.info(f"💡 Gemini generated response: {response_text[:200]}...")
             
             # Parse the response into structured user story
             story = self._extract_story_from_text(response_text, doc, paragraph_index)
             
             if story:
-                print(f"✅ Successfully extracted story with context")
-                print(f"📋 Story details: {story.get('User Story', 'Unknown')[:50]}...")
+                logger.info(f"✅ Successfully extracted story with context")
+                logger.info(f"📋 Story details: {story.get('User Story', 'Unknown')[:50]}...")
             else:
-                print(f"⚠️ Failed to parse story from Gemini response")
+                logger.warning(f"⚠️ Failed to parse story from Gemini response")
                 
             return story
             
         except Exception as e:
-            print(f"❌ Error in Gemini AI extraction with context: {str(e)}")
-            print(f"🔄 Falling back to pattern matching...")
+            logger.error(f"❌ Error in Gemini AI extraction with context: {str(e)}")
+            logger.info(f"🔄 Falling back to pattern matching...")
             return self._extract_with_patterns(text, doc, paragraph_index)
+    
+    def _extract_story_from_text(self, response_text: str, doc: Dict[str, Any], paragraph_index: int) -> Optional[Dict[str, Any]]:
+        """Parse AI response into structured user story"""
+        try:
+            # Parse the response text to extract user story components
+            lines = response_text.strip().split('\n')
+            story_data = {}
+            
+            for line in lines:
+                line = line.strip()
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    
+                    if key == 'User Story':
+                        story_data['User Story'] = value
+                    elif key == 'Capability':
+                        story_data['Capability'] = value
+                    elif key == 'Category':
+                        story_data['Category'] = value
+                    elif key == 'Priority':
+                        story_data['Priority'] = value
+                    elif key == 'Snippet':
+                        story_data['Snippet'] = value
+                    elif key == 'Team':
+                        story_data['Team'] = value
+                    elif key == 'Stakeholder':
+                        story_data['Stakeholder'] = value
+            
+            # Validate that we have the minimum required fields
+            if 'User Story' in story_data and 'Capability' in story_data:
+                # Add metadata
+                story_data['id'] = f"US-{doc.get('filename', 'unknown')}-{paragraph_index}"
+                story_data['source_document'] = doc.get('filename', 'unknown')
+                story_data['paragraph_index'] = paragraph_index
+                
+                return story_data
+            else:
+                logger.warning(f"Missing required fields in story response: {story_data}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error parsing story from AI response: {e}")
+            return None
     
     def _build_extraction_prompt_with_context(self, text: str, doc: Dict[str, Any], paragraph_index: int, context_chunks: List[Dict[str, Any]] = None) -> str:
         """Build the AI extraction prompt with enhanced context from vectorized chunks"""

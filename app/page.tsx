@@ -12,7 +12,7 @@ import ExternalStoryImporter from '@/components/ExternalStoryImporter';
 import { JobStatus } from '@/components/JobStatus';
 import { ResultsDownload } from '@/components/ResultsDownload';
 import { GeminiAssistant } from '@/components/GeminiAssistant';
-import { createJob, startProcessing, getJobStatus, createConstruct, uploadFilesToJob } from '@/lib/api';
+import { createConstruct, createJob, getJobStatus, APIError } from '@/lib/api';
 import { RequirementsTable } from '@/components/RequirementsTable';
 import { RequirementsConstructEditor } from '@/components/RequirementsConstructEditor';
 
@@ -90,7 +90,7 @@ export default function HomePage() {
       switch (currentStep) {
         case 'construct':
           // For construct step, we can proceed if we have a construct
-          return construct !== null;
+          return construct !== null && construct.name && construct.output_schema && construct.output_schema.length > 0;
         case 'upload':
           return construct !== null && transcripts.length > 0;
         case 'process':
@@ -98,9 +98,9 @@ export default function HomePage() {
         case 'download':
           return construct !== null && transcripts.length > 0;
         case 'requirements_construct':
-          return construct !== null;
+          return construct !== null && requirementsConstruct !== null && requirementsConstruct.name && requirementsConstruct.output_schema && requirementsConstruct.output_schema.length > 0;
         case 'requirements':
-          return construct !== null && transcripts.length > 0;
+          return construct !== null && transcripts.length > 0 && requirementsConstruct !== null;
         default:
           return false;
       }
@@ -110,6 +110,9 @@ export default function HomePage() {
       currentStep,
       construct: construct !== null,
       constructValue: construct,
+      constructValid: construct !== null && construct?.name && construct?.output_schema?.length > 0,
+      requirementsConstruct: requirementsConstruct !== null,
+      requirementsConstructValid: requirementsConstruct !== null && requirementsConstruct?.name && requirementsConstruct?.output_schema?.length > 0,
       transcriptsCount: transcripts.length,
       canProceed
     });
@@ -148,6 +151,25 @@ export default function HomePage() {
 
   const handleConstructSave = async (newConstruct: Construct) => {
     try {
+      // Validate construct data
+      if (!newConstruct.name?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Construct name is required.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!newConstruct.output_schema || newConstruct.output_schema.length === 0) {
+        toast({
+          title: "Validation Error",
+          description: "At least one output schema field is required.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       console.log('Saving construct:', newConstruct);
       
       // Save construct to backend
@@ -183,9 +205,25 @@ export default function HomePage() {
       
     } catch (error) {
       console.error('Error saving construct:', error);
+      
+      let errorMessage = "Failed to save construct";
+      if (error instanceof APIError) {
+        errorMessage = error.message;
+        
+        // Handle specific error types
+        if (error.code === 'VALIDATION_ERROR') {
+          toast({
+            title: "Validation Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       toast({
         title: "Error saving construct",
-        description: error instanceof Error ? error.message : "Failed to save construct",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -193,6 +231,25 @@ export default function HomePage() {
 
   const handleRequirementsConstructSave = async (newRequirementsConstruct: Construct) => {
     try {
+      // Validate requirements construct data
+      if (!newRequirementsConstruct.name?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Requirements construct name is required.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!newRequirementsConstruct.output_schema || newRequirementsConstruct.output_schema.length === 0) {
+        toast({
+          title: "Validation Error",
+          description: "At least one output schema field is required.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       console.log('Saving requirements construct:', newRequirementsConstruct);
       
       // Save requirements construct to backend
@@ -228,9 +285,25 @@ export default function HomePage() {
       
     } catch (error) {
       console.error('Error saving requirements construct:', error);
+      
+      let errorMessage = "Failed to save requirements construct";
+      if (error instanceof APIError) {
+        errorMessage = error.message;
+        
+        // Handle specific error types
+        if (error.code === 'VALIDATION_ERROR') {
+          toast({
+            title: "Validation Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       toast({
         title: "Error saving requirements construct",
-        description: error instanceof Error ? error.message : "Failed to save requirements construct",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -261,81 +334,111 @@ export default function HomePage() {
   };
 
   const handleStartProcessing = async () => {
-    if (!construct || transcripts.length === 0) {
+    if (!construct || !transcripts || transcripts.length === 0) {
       toast({
-        title: "Missing information",
-        description: "Please ensure you have a construct and transcripts before processing.",
+        title: "Missing Data",
+        description: "Please ensure you have both a construct and transcripts before starting processing.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      setIsProcessing(true);
-      setJobStatus('creating');
+      setJobStatus('processing');
+      setProcessingProgress(0);
 
       // Create job
       const job = await createJob(construct, transcripts);
+      setJob(job);
+      setJobId(job.id);
 
-      setJobId(job);
-      setJobStatus('uploading');
+      toast({
+        title: "Processing Started",
+        description: "Your interview data is being processed with AI. This may take a few minutes.",
+      });
 
-      // Upload files
-      const files = transcripts
-        .filter(t => t.file)
-        .map(t => t.file!)
-        .filter(Boolean);
+      // Poll for completion
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await getJobStatus(job.id);
+          setJobStatus(status.status);
+          setProcessingProgress(status.progress || 0);
 
-      if (files.length > 0) {
-        await uploadFilesToJob(job, files);
-        setJobStatus('processing');
-
-        // Start processing
-        await startProcessing(job);
-
-        // Poll for completion
-        const pollInterval = setInterval(async () => {
-          try {
-            const status = await getJobStatus(job);
-            setJobStatus(status.status);
-
-            if (status.status === 'COMPLETED') {
-              setIsProcessing(false);
-              clearInterval(pollInterval);
-              
-              // Extract requirements from the completed job
-              if (status.requirements_count && status.requirements_count > 0) {
-                // TODO: Fetch requirements from backend
-                // For now, generate sample requirements
-                const sampleRequirements = generateSampleRequirements(status.user_stories_count || 0);
-                setRequirements(sampleRequirements);
+          if (status.status === 'COMPLETED') {
+            clearInterval(pollInterval);
+            setProcessingProgress(100);
+            
+            // Set requirements with sample data (TODO: fetch real data)
+            setRequirements([
+              {
+                req_id: 'REQ-001',
+                requirement: 'User authentication system',
+                priority_level: 'HIGH',
+                req_details: 'Implement secure user login and registration',
+                source_story_id: 'US-001'
+              },
+              {
+                req_id: 'REQ-002',
+                requirement: 'Document upload functionality',
+                priority_level: 'MEDIUM',
+                req_details: 'Allow users to upload and manage documents',
+                source_story_id: 'US-002'
               }
-              
-              toast({
-                title: "Processing complete!",
-                description: `Generated ${status.user_stories_count || 0} user stories and ${status.requirements_count || 0} requirements.`,
-              });
-            } else if (status.status === 'FAILED') {
-              setIsProcessing(false);
-              clearInterval(pollInterval);
-              toast({
-                title: "Processing failed",
-                description: status.error || "An error occurred during processing",
-                variant: "destructive",
-              });
-            }
-          } catch (error) {
-            console.error('Error polling job status:', error);
+            ]);
+
+            toast({
+              title: "Processing Complete!",
+              description: `Successfully processed ${status.user_stories_count || 0} user stories and ${status.requirements_count || 0} requirements.`,
+            });
+          } else if (status.status === 'FAILED') {
+            clearInterval(pollInterval);
+            setJobStatus('failed');
+            toast({
+              title: "Processing Failed",
+              description: status.error || "An error occurred during processing.",
+              variant: "destructive",
+            });
           }
-        }, 2000);
-      }
+        } catch (error) {
+          console.error('Error polling job status:', error);
+          clearInterval(pollInterval);
+          setJobStatus('failed');
+          
+          let errorMessage = "Failed to check job status";
+          if (error instanceof APIError) {
+            errorMessage = error.message;
+          }
+          
+          toast({
+            title: "Status Check Failed",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
+      }, 2000);
+
     } catch (error) {
       console.error('Error starting processing:', error);
-      setIsProcessing(false);
-      setJobStatus('idle');
+      setJobStatus('failed');
+      
+      let errorMessage = "Failed to start processing";
+      if (error instanceof APIError) {
+        errorMessage = error.message;
+        
+        // Handle specific error types
+        if (error.code === 'VALIDATION_ERROR') {
+          toast({
+            title: "Validation Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       toast({
-        title: "Error starting processing",
-        description: error instanceof Error ? error.message : "Failed to start processing",
+        title: "Processing Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -685,6 +788,232 @@ export default function HomePage() {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Transform interview transcripts into structured user stories and requirements using AI-powered extraction
           </p>
+        </div>
+
+        {/* App Introduction & Workflow Explanation */}
+        <div className="mb-12 max-w-6xl mx-auto">
+          <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0 shadow-lg">
+            <CardContent className="p-8">
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  From Interviews to Requirements in 5 Simple Steps
+                </h2>
+                <p className="text-gray-600">
+                  Our AI-powered pipeline transforms stakeholder interviews into actionable requirements
+                </p>
+              </div>
+
+              {/* Workflow Steps */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {/* Step 1: Define Structure */}
+                <div className="bg-white rounded-lg p-6 border border-blue-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                      1
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Define Structure</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">
+                    Define your output schema for user stories and requirements
+                  </p>
+                  <div className="flex items-center text-xs text-blue-600">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    AI Guidance: Suggests optimal field structures
+                  </div>
+                </div>
+
+                {/* Step 2: Upload Interviews */}
+                <div className="bg-white rounded-lg p-6 border border-blue-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                      2
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Upload Interviews</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">
+                    Upload interview transcripts, documents, or folders
+                  </p>
+                  <div className="flex items-center text-xs text-blue-600">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    AI Processing: Automatically extracts and vectorizes content
+                  </div>
+                </div>
+
+                {/* Step 3: AI Analysis */}
+                <div className="bg-white rounded-lg p-6 border border-blue-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                      3
+                    </div>
+                    <h3 className="font-semibold text-gray-900">AI Analysis</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">
+                    Gemini AI processes transcripts with full context awareness
+                  </p>
+                  <div className="flex items-center text-xs text-blue-600">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Context-Aware: Uses vectorized transcripts for better insights
+                  </div>
+                </div>
+
+                {/* Step 4: Generate Stories */}
+                <div className="bg-white rounded-lg p-6 border border-blue-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                      4
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Generate Stories</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">
+                    AI extracts user stories following your defined schema
+                  </p>
+                  <div className="flex items-center text-xs text-blue-600">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Smart Extraction: Identifies roles, capabilities, and business value
+                  </div>
+                </div>
+
+                {/* Step 5: Convert to Requirements */}
+                <div className="bg-white rounded-lg p-6 border border-blue-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                      5
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Requirements</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">
+                    Convert user stories into structured requirements
+                  </p>
+                  <div className="flex items-center text-xs text-blue-600">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Intelligent Conversion: Maps stories to requirement schemas
+                  </div>
+                </div>
+
+                {/* AI Assistant */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 border border-purple-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                      🤖
+                    </div>
+                    <h3 className="font-semibold text-gray-900">AI Assistant</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">
+                    Get help and insights throughout the entire process
+                  </p>
+                  <div className="flex items-center text-xs text-purple-600">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    24/7 Support: Ask questions about any step
+                  </div>
+                </div>
+              </div>
+
+              {/* How Gemini AI Helps */}
+              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-6 border border-indigo-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <svg className="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  How Gemini AI Powers Your Workflow
+                </h3>
+                
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-start">
+                      <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                        <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Context-Aware Processing</h4>
+                        <p className="text-sm text-gray-600">Uses Vertex AI vectorization to understand relationships across all interviews</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start">
+                      <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                        <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Smart Field Mapping</h4>
+                        <p className="text-sm text-gray-600">Automatically maps interview content to your defined schema fields</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start">
+                      <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                        <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Business Intelligence</h4>
+                        <p className="text-sm text-gray-600">Identifies stakeholders, priorities, and business value from natural language</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-start">
+                      <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                        <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Cross-Reference Analysis</h4>
+                        <p className="text-sm text-gray-600">Connects insights from multiple stakeholders and interviews</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start">
+                      <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                        <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Requirements Generation</h4>
+                        <p className="text-sm text-gray-600">Intelligently converts user stories into detailed requirements</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start">
+                      <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                        <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">Continuous Learning</h4>
+                        <p className="text-sm text-gray-600">Improves accuracy with each analysis using feedback loops</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Progress Steps */}
