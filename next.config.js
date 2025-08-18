@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   trailingSlash: false,
-  experimental: {
-    appDir: true,
-  },
   async headers() {
     return [
       {
