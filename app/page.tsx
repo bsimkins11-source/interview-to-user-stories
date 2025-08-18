@@ -225,12 +225,7 @@ export default function HomePage() {
       setJobStatus('creating');
 
       // Create job
-      const job = await createJob({
-        name: `Interview ETL Job - ${new Date().toLocaleDateString()}`,
-        description: `Processing ${transcripts.length} transcript(s) with construct "${construct.name}"`,
-        construct: construct,
-        transcripts: transcripts,
-      });
+      const job = await createJob(construct, transcripts);
 
       setJobId(job);
       setJobStatus('uploading');
