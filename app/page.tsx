@@ -15,8 +15,9 @@ import { GeminiAssistant } from '@/components/GeminiAssistant';
 import { createConstruct, createJob, getJobStatus, APIError } from '@/lib/api';
 import { RequirementsTable } from '@/components/RequirementsTable';
 import { RequirementsConstructEditor } from '@/components/RequirementsConstructEditor';
+import { EditableUserStoriesTable } from '@/components/EditableUserStoriesTable';
 
-type Step = 'home' | 'construct' | 'upload' | 'process' | 'download' | 'requirements_construct' | 'requirements';
+type Step = 'home' | 'construct' | 'upload' | 'process' | 'download' | 'userStories' | 'requirements_construct' | 'requirements';
 
 interface Construct {
   name: string;
@@ -61,7 +62,102 @@ export default function HomePage() {
   const [processingProgress, setProcessingProgress] = useState<number>(0);
   const [forceRefresh, setForceRefresh] = useState(0);
   const [requirements, setRequirements] = useState<any[]>([]);
-  const [requirementsConstruct, setRequirementsConstruct] = useState<Construct | null>(null);
+  const [userStories, setUserStories] = useState<any[]>([]);
+  const [requirementsConstruct, setRequirementsConstruct] = useState<any>(null);
+
+  // Generate sample user stories for demonstration
+  const generateSampleUserStories = () => {
+    return [
+      {
+        id: 'US-001',
+        userStory: 'As a product manager, I need to analyze interview transcripts to extract user requirements',
+        userStoryStatement: 'Extract user requirements from interview data',
+        epic: 'Interview Analysis',
+        stakeholderName: 'Product Manager',
+        stakeholderRole: 'Product Owner',
+        stakeholderTeam: 'Product',
+        category: 'Analytics',
+        changeCatalyst: 'Need to understand user needs from interviews',
+        useCaseId: 'UC-2024-001',
+        priority: 'High' as const,
+        confidence: 0.95,
+        tags: ['interview', 'requirements', 'analysis'],
+        lifecyclePhase: 'Discovery',
+        source: 'AI Extraction',
+        snippet: 'Product manager needs to analyze interview transcripts...'
+      },
+      {
+        id: 'US-002',
+        userStory: 'As a business analyst, I need to convert user stories into detailed requirements',
+        userStoryStatement: 'Convert user stories to requirements',
+        epic: 'Requirements Generation',
+        stakeholderName: 'Business Analyst',
+        stakeholderRole: 'Analyst',
+        stakeholderTeam: 'Business',
+        category: 'Requirements',
+        changeCatalyst: 'Need structured requirements for development',
+        useCaseId: 'UC-2024-002',
+        priority: 'Medium' as const,
+        confidence: 0.88,
+        tags: ['requirements', 'conversion', 'development'],
+        lifecyclePhase: 'Planning',
+        source: 'AI Extraction',
+        snippet: 'Business analyst needs to convert user stories...'
+      },
+      {
+        id: 'US-003',
+        userStory: 'As a developer, I need to understand the technical requirements from user stories',
+        userStoryStatement: 'Understand technical requirements',
+        epic: 'Technical Planning',
+        stakeholderName: 'Developer',
+        stakeholderRole: 'Software Engineer',
+        stakeholderTeam: 'Engineering',
+        category: 'Development',
+        changeCatalyst: 'Need clear technical specifications',
+        useCaseId: 'UC-2024-003',
+        priority: 'High' as const,
+        confidence: 0.92,
+        tags: ['technical', 'specifications', 'development'],
+        lifecyclePhase: 'Planning',
+        source: 'AI Extraction',
+        snippet: 'Developer needs to understand technical requirements...'
+      }
+    ];
+  };
+
+  // Generate sample requirements for demonstration
+  const generateSampleRequirements = () => {
+    return [
+      {
+        req_id: 'REQ-001',
+        requirement: 'Implement interview transcript analysis system',
+        priority_level: 'HIGH' as const,
+        req_details: 'Build a system that can process interview transcripts and extract key insights using AI',
+        source_story_id: 'US-001'
+      },
+      {
+        req_id: 'REQ-002',
+        requirement: 'Create requirements generation workflow',
+        priority_level: 'MEDIUM' as const,
+        req_details: 'Develop a workflow to convert user stories into detailed technical requirements',
+        source_story_id: 'US-002'
+      },
+      {
+        req_id: 'REQ-003',
+        requirement: 'Design technical specification templates',
+        priority_level: 'HIGH' as const,
+        req_details: 'Create standardized templates for technical specifications based on user stories',
+        source_story_id: 'US-003'
+      }
+    ];
+  };
+
+  // Initialize with sample data
+  useEffect(() => {
+    setUserStories(generateSampleUserStories());
+    setRequirements(generateSampleRequirements());
+  }, []);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -81,6 +177,7 @@ export default function HomePage() {
     { id: 'upload', title: 'Upload Interview Transcripts', icon: Upload, description: 'Upload or link to interview transcripts' },
     { id: 'process', title: 'Process & Extract', icon: Play, description: 'AI-powered extraction and processing' },
     { id: 'download', title: 'Download Results', icon: Download, description: 'Get your structured user stories' },
+    { id: 'userStories', title: 'Edit User Stories', icon: FileText, description: 'Review and edit your user stories' },
     { id: 'requirements_construct', title: 'Define Requirements Structure', icon: FileText, description: 'Define the structure for your requirements' },
     { id: 'requirements', title: 'Requirements', icon: FileText, description: 'Convert user stories to requirements' }
   ];
@@ -97,6 +194,8 @@ export default function HomePage() {
         case 'process':
           return construct !== null && transcripts.length > 0;
         case 'download':
+          return construct !== null && transcripts.length > 0;
+        case 'userStories':
           return construct !== null && transcripts.length > 0;
         case 'requirements_construct':
           return construct !== null && requirementsConstruct !== null && requirementsConstruct.name && requirementsConstruct.output_schema && requirementsConstruct.output_schema.length > 0;
@@ -577,6 +676,23 @@ export default function HomePage() {
             />
           </div>
         );
+      case 'userStories':
+        return (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-bold">Edit User Stories</h2>
+              <p className="text-muted-foreground">Review and edit your user stories based on the extracted data.</p>
+            </div>
+            <EditableUserStoriesTable
+              userStories={userStories}
+              onStoriesChange={setUserStories}
+              onDownload={(stories) => {
+                // This will trigger the CSV download functionality
+                console.log('Downloading user stories:', stories);
+              }}
+            />
+          </div>
+        );
       case 'requirements_construct':
         return (
           <div className="space-y-6">
@@ -597,7 +713,11 @@ export default function HomePage() {
             <RequirementsTable
               requirements={requirements}
               onRequirementsChange={setRequirements}
-              onDownload={() => {}}
+              onDownload={() => {
+                // The RequirementsTable component already has built-in CSV download functionality
+                // This prop is required by the interface but the component handles download internally
+                console.log('Requirements download triggered');
+              }}
             />
           </div>
         );
