@@ -170,6 +170,16 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
     }
   ];
 
+  const getSampleUserStories = useMemo(() => {
+    // Use passed user stories data if available, otherwise fall back to sample data
+    if (jobStatus?.userStories && jobStatus.userStories.length > 0) {
+      return jobStatus.userStories;
+    }
+    
+    // Fallback to static sample data
+    return sampleUserStories;
+  }, [jobStatus?.userStories]);
+
   // Sync editable stories when user stories change
   useEffect(() => {
     console.log('🔄 useEffect triggered:', { 
@@ -459,16 +469,6 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
       count,
       percentage: Math.round((count / total) * 100)
     })).sort((a, b) => b.count - a.count);
-  }, [jobStatus?.userStories]);
-
-  const getSampleUserStories = useMemo(() => {
-    // Use passed user stories data if available, otherwise fall back to sample data
-    if (jobStatus?.userStories && jobStatus.userStories.length > 0) {
-      return jobStatus.userStories;
-    }
-    
-    // Fallback to static sample data
-    return sampleUserStories;
   }, [jobStatus?.userStories]);
 
   return (
