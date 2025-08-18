@@ -16,6 +16,7 @@ import { createConstruct, createJob, getJobStatus, APIError } from '@/lib/api';
 import { RequirementsTable } from '@/components/RequirementsTable';
 import { RequirementsConstructEditor } from '@/components/RequirementsConstructEditor';
 import { EditableUserStoriesTable } from '@/components/EditableUserStoriesTable';
+import { GlobalHeader } from '@/components/GlobalHeader';
 
 type Step = 'home' | 'construct' | 'upload' | 'process' | 'download' | 'userStories' | 'requirements_construct' | 'requirements';
 
@@ -476,117 +477,138 @@ export default function HomePage() {
     switch (currentStep) {
       case 'home':
         return (
-          <div className="space-y-8">
-            {/* Hero Section */}
-            <div className="text-center space-y-6">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mb-6">
-                <Rocket className="w-10 h-10 text-white" />
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+            <div className="container mx-auto px-4 py-8">
+              {/* Transparent Partners Logo */}
+              <div className="text-center mb-8">
+                <img 
+                  src="/transparent-partners-logo.png" 
+                  alt="Transparent Partners" 
+                  className="h-16 mx-auto mb-4"
+                />
+                <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full"></div>
               </div>
-              <h1 className="text-5xl font-bold text-gray-900">Transform Interviews into Requirements</h1>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Our AI-powered pipeline transforms stakeholder interviews into actionable requirements in minutes, not weeks.
-              </p>
-              <Button
-                onClick={handleGetStarted}
-                size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-105"
-              >
-                Get Started
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </div>
 
-            {/* How It Works */}
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-8 border-0 shadow-lg">
-              <h2 className="text-3xl font-bold text-center text-gray-900 mb-8">How It Works</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                    <FileText className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900">1. Define Structure</h3>
-                  <p className="text-gray-600">Design your output schema for user stories and requirements</p>
+              {/* Hero Section */}
+              <div className="text-center space-y-6 mb-12">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mb-6">
+                  <Rocket className="w-10 h-10 text-white" />
                 </div>
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                    <Upload className="w-8 h-8 text-green-600" />
+                <h1 className="text-5xl font-bold text-gray-900">Transform Interviews into Requirements</h1>
+                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                  Our AI-powered pipeline transforms stakeholder interviews into actionable requirements in minutes, not weeks.
+                </p>
+                <Button
+                  onClick={handleGetStarted}
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-105"
+                >
+                  Get Started
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </div>
+
+              {/* How It Works */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-8 border-0 shadow-lg mb-12">
+                <h2 className="text-3xl font-bold text-center text-gray-900 mb-8">How It Works</h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                      <FileText className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900">1. Define Structure</h3>
+                    <p className="text-gray-600">Design your output schema for user stories and requirements</p>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900">2. Upload Interviews</h3>
-                  <p className="text-gray-600">Upload interview transcripts, documents, or folders</p>
-                </div>
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto">
-                    <Brain className="w-8 h-8 text-purple-600" />
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                      <Upload className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900">2. Upload Interviews</h3>
+                    <p className="text-gray-600">Upload interview transcripts, documents, or folders</p>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900">3. AI Processing</h3>
-                  <p className="text-gray-600">Gemini AI processes transcripts with full context awareness</p>
-                </div>
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
-                    <Download className="w-8 h-8 text-orange-600" />
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto">
+                      <Brain className="w-8 h-8 text-purple-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900">3. AI Processing</h3>
+                    <p className="text-gray-600">Gemini AI processes transcripts with full context awareness</p>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900">4. Get Results</h3>
-                  <p className="text-gray-600">Download structured user stories and requirements</p>
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
+                      <Download className="w-8 h-8 text-orange-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900">4. Get Results</h3>
+                    <p className="text-gray-600">Download structured user stories and requirements</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Key Features */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                    <ZapIcon className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">AI-Powered Extraction</h3>
-                  <p className="text-gray-600">Advanced Gemini AI with Vertex AI vectorization for context-aware processing</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                    <Users className="w-6 h-6 text-green-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Stakeholder Focus</h3>
-                  <p className="text-gray-600">Extract insights from multiple stakeholders with cross-reference analysis</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                    <BarChart3 className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Smart Analytics</h3>
-                  <p className="text-gray-600">Intelligent categorization, prioritization, and business value identification</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                    <Shield className="w-6 h-6 text-indigo-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Enterprise Ready</h3>
-                  <p className="text-gray-600">Scalable architecture with comprehensive error handling and monitoring</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
-                    <Target className="w-6 h-6 text-red-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Requirements Generation</h3>
-                  <p className="text-gray-600">Convert user stories to detailed requirements with AI intelligence</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
-                    <MessageCircle className="w-6 h-6 text-yellow-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">AI Assistant</h3>
-                  <p className="text-gray-600">Get help and guidance throughout the entire process</p>
-                </CardContent>
-              </Card>
+              {/* Key Features */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                      <ZapIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">AI-Powered Extraction</h3>
+                    <p className="text-gray-600">Advanced Gemini AI with Vertex AI vectorization for context-aware processing</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                      <Users className="w-6 h-6 text-green-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Stakeholder Focus</h3>
+                    <p className="text-gray-600">Extract insights from multiple stakeholders with cross-reference analysis</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                      <BarChart3 className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Smart Analytics</h3>
+                    <p className="text-gray-600">Intelligent categorization, prioritization, and business value identification</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                      <Shield className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Enterprise Ready</h3>
+                    <p className="text-gray-600">Scalable architecture with comprehensive error handling and monitoring</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                      <Target className="w-6 h-6 text-red-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Requirements Generation</h3>
+                    <p className="text-gray-600">Convert user stories to detailed requirements with AI intelligence</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
+                      <MessageCircle className="w-6 h-6 text-yellow-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">AI Assistant</h3>
+                    <p className="text-gray-600">Get help and guidance throughout the entire process</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Gemini AI Assistant below the app intro */}
+              <div className="max-w-4xl mx-auto">
+                <GeminiAssistant 
+                  currentStep="home"
+                  construct={construct}
+                  userStories={[]}
+                />
+              </div>
             </div>
           </div>
         );
@@ -731,15 +753,16 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="container mx-auto px-4 py-8">
-          {/* Gemini AI Assistant at the top for home page */}
-          <div className="mb-8 max-w-4xl mx-auto">
+          {getStepContent()}
+          
+          {/* Gemini AI Assistant below the app intro */}
+          <div className="mt-12 max-w-4xl mx-auto">
             <GeminiAssistant 
               currentStep="home"
               construct={construct}
               userStories={[]}
             />
           </div>
-          {getStepContent()}
         </div>
       </div>
     );
@@ -747,12 +770,10 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Global Header */}
+      <GlobalHeader onHomeClick={() => setCurrentStep('home')} />
+      
       <div className="container mx-auto px-4 py-8">
-        {/* Simple Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Interview ETL</h1>
-        </div>
-
         {/* Simple Progress Steps */}
         <div className="mb-8 max-w-4xl mx-auto">
           <div className="flex justify-center space-x-4">
