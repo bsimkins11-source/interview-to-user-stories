@@ -1,5 +1,7 @@
-// API client configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://interview-etl-backend-289778453333.us-central1.run.app';
+// API configuration
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://interview-etl-backend-289778453333.us-central1.run.app'
+  : 'http://localhost:8000';
 
 // API fetch wrapper with error handling
 export const api = async (endpoint: string, options: RequestInit = {}) => {
