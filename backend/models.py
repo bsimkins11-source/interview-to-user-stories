@@ -18,6 +18,25 @@ class Construct(BaseModel):
     defaults: Dict[str, str]
     priority_rules: List[str]
 
+class ConstructCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    output_schema: List[str]
+    pattern: str
+    defaults: Dict[str, str]
+    priority_rules: List[str]
+
+class ConstructResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    output_schema: List[str]
+    pattern: str
+    defaults: Dict[str, str]
+    priority_rules: List[str]
+    created_at: datetime
+    updated_at: datetime
+
 class TranscriptInput(BaseModel):
     id: str
     type: str  # 'file', 'folder', 'document'
