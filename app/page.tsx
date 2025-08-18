@@ -14,8 +14,9 @@ import { ResultsDownload } from '@/components/ResultsDownload';
 import { GeminiAssistant } from '@/components/GeminiAssistant';
 import { createJob, startProcessing, getJobStatus, createConstruct, uploadFilesToJob } from '@/lib/api';
 import { RequirementsTable } from '@/components/RequirementsTable';
+import { RequirementsConstructEditor } from '@/components/RequirementsConstructEditor';
 
-type Step = 'construct' | 'upload' | 'process' | 'download' | 'requirements';
+type Step = 'construct' | 'upload' | 'process' | 'download' | 'requirements_construct' | 'requirements';
 
 interface Construct {
   name: string;
@@ -59,6 +60,7 @@ export default function HomePage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [forceRefresh, setForceRefresh] = useState(0); // Add force refresh state
   const [requirements, setRequirements] = useState<any[]>([]); // Add requirements state
+  const [requirementsConstruct, setRequirementsConstruct] = useState<Construct | null>(null); // Add requirements construct state
   const { toast } = useToast();
 
   // Add useEffect to watch for construct changes and log them
@@ -79,6 +81,7 @@ export default function HomePage() {
     { id: 'upload', title: 'Upload Interview Transcripts', icon: Upload, description: 'Upload or link to interview transcripts' },
     { id: 'process', title: 'Process & Extract', icon: Play, description: 'AI-powered extraction and processing' },
     { id: 'download', title: 'Download Results', icon: Download, description: 'Get your structured user stories' },
+    { id: 'requirements_construct', title: 'Define Requirements Structure', icon: FileText, description: 'Define the structure for your requirements' },
     { id: 'requirements', title: 'Requirements', icon: FileText, description: 'Convert user stories to requirements' }
   ];
 
@@ -94,6 +97,8 @@ export default function HomePage() {
           return construct !== null && transcripts.length > 0;
         case 'download':
           return construct !== null && transcripts.length > 0;
+        case 'requirements_construct':
+          return construct !== null;
         case 'requirements':
           return construct !== null && transcripts.length > 0;
         default:
@@ -181,6 +186,51 @@ export default function HomePage() {
       toast({
         title: "Error saving construct",
         description: error instanceof Error ? error.message : "Failed to save construct",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRequirementsConstructSave = async (newRequirementsConstruct: Construct) => {
+    try {
+      console.log('Saving requirements construct:', newRequirementsConstruct);
+      
+      // Save requirements construct to backend
+      const savedRequirementsConstruct = await createConstruct(newRequirementsConstruct);
+      console.log('Requirements construct saved successfully:', savedRequirementsConstruct);
+      
+      // Set the requirements construct state immediately
+      setRequirementsConstruct(newRequirementsConstruct);
+      console.log('Requirements construct state updated:', newRequirementsConstruct);
+      
+      toast({
+        title: "Requirements construct saved!",
+        description: `Your requirements structure "${newRequirementsConstruct.name}" has been defined with ${newRequirementsConstruct.output_schema.length} fields.`,
+      });
+      
+      // Force a state refresh to ensure UI updates
+      setForceRefresh(prev => prev + 1);
+      
+      // Wait for state to update, then check navigation
+      setTimeout(() => {
+        console.log('Timeout callback - checking navigation...');
+        console.log('Current requirements construct state:', requirementsConstruct);
+        console.log('Can proceed check:', canProceedToNext());
+        
+        if (canProceedToNext()) {
+          console.log('Auto-advancing to next step...');
+          handleNext();
+        } else {
+          console.log('Cannot auto-advance, manual navigation required');
+          console.log('Current state:', { currentStep, requirementsConstruct: !!requirementsConstruct });
+        }
+      }, 100); // Reduced delay since we're forcing refresh
+      
+    } catch (error) {
+      console.error('Error saving requirements construct:', error);
+      toast({
+        title: "Error saving requirements construct",
+        description: error instanceof Error ? error.message : "Failed to save requirements construct",
         variant: "destructive",
       });
     }
@@ -527,15 +577,72 @@ export default function HomePage() {
           </div>
         );
 
+      case 'requirements_construct':
+        return (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-bold">Define Requirements Structure</h2>
+              <p className="text-muted-foreground">
+                Define the structure for your requirements. This will guide the AI conversion process.
+              </p>
+            </div>
+            <RequirementsConstructEditor onSave={handleRequirementsConstructSave} />
+            
+            {/* Show success message and continue button when requirements construct is saved */}
+            {requirementsConstruct && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">
+                  Requirements Structure Saved Successfully!
+                </h3>
+                <p className="text-green-700 mb-4">
+                  Your requirements structure "{requirementsConstruct.name}" has been defined with {requirementsConstruct.output_schema.length} fields.
+                </p>
+                <Button 
+                  onClick={() => {
+                    console.log('Continue button clicked');
+                    console.log('Current state before navigation:', { currentStep, requirementsConstruct: !!requirementsConstruct });
+                    handleNext();
+                  }}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Continue to Requirements
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+
       case 'requirements':
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold">Requirements Generation</h2>
               <p className="text-muted-foreground">
-                AI-powered conversion of user stories into structured requirements with priority levels and detailed specifications.
+                AI-powered conversion of user stories into structured requirements using your defined schema.
               </p>
             </div>
+            
+            {/* Show requirements construct info */}
+            {requirementsConstruct && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-semibold text-blue-800 mb-2">Requirements Schema</h3>
+                <div className="flex flex-wrap gap-2">
+                  {requirementsConstruct.output_schema.map((field) => (
+                    <Badge key={field} variant="outline" className="bg-blue-100 text-blue-800">
+                      {field}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* Show requirements table */}
             <RequirementsTable
@@ -552,8 +659,9 @@ export default function HomePage() {
               <div className="flex items-center justify-between text-sm">
                 <span>Progress:</span>
                 <span className="font-medium">
-                  {construct ? '✅ Output structure defined' : '❌ Output structure needed'} • {' '}
+                  {construct ? '✅ User stories structure defined' : '❌ User stories structure needed'} • {' '}
                   {transcripts.length > 0 ? `✅ ${transcripts.length} transcript(s) added` : '❌ No transcripts added'} • {' '}
+                  {requirementsConstruct ? '✅ Requirements structure defined' : '❌ Requirements structure needed'} • {' '}
                   {requirements.length > 0 ? `✅ ${requirements.length} requirements generated` : '❌ No requirements yet'}
                 </span>
               </div>

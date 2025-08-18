@@ -7,34 +7,41 @@ import google.generativeai as genai
 class RequirementsConverter:
     """Convert user stories into structured requirements using advanced Gemini AI analysis"""
     
-    def __init__(self, gemini_api_key: Optional[str] = None):
+    def __init__(self, gemini_api_key: Optional[str] = None, requirements_construct: Optional[Dict[str, Any]] = None):
         self.gemini_model = None
+        self.requirements_construct = requirements_construct
+        
         if gemini_api_key:
             try:
                 genai.configure(api_key=gemini_api_key)
                 self.gemini_model = GenerativeModel('gemini-pro')
                 print("🚀 Requirements converter initialized with Gemini AI - Ready for intelligent analysis!")
+                if requirements_construct:
+                    print(f"📋 Using requirements construct: {requirements_construct.get('name', 'Unknown')} with {len(requirements_construct.get('output_schema', []))} fields")
             except Exception as e:
                 print(f"⚠️ Failed to initialize Gemini for requirements conversion: {e}")
                 self.gemini_model = None
         else:
             print("❌ No Gemini API key provided - requirements conversion will use basic patterns")
     
-    def convert_stories_to_requirements(self, user_stories: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Convert user stories to requirements using Gemini AI analysis"""
+    def convert_stories_to_requirements(self, user_stories: List[Dict[str, Any]], user_stories_construct: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Convert user stories to requirements using Gemini AI analysis with both constructs"""
         if not self.gemini_model:
             print("⚠️ Gemini AI not available - falling back to basic pattern matching")
             return self._convert_with_patterns_batch(user_stories)
         
         print(f"🤖 Gemini AI analyzing {len(user_stories)} user stories for requirements conversion...")
+        print(f"📊 User stories construct: {user_stories_construct.get('name', 'Unknown') if user_stories_construct else 'None'}")
+        print(f"📋 Requirements construct: {self.requirements_construct.get('name', 'Unknown') if self.requirements_construct else 'None'}")
+        
         requirements = []
         
         for i, story in enumerate(user_stories, 1):
             try:
                 print(f"📋 Processing story {i}/{len(user_stories)}: {story.get('User Story', 'Unknown')[:50]}...")
                 
-                # Use Gemini to intelligently convert the story
-                story_requirements = self._convert_with_gemini_intelligence(story)
+                # Use Gemini to intelligently convert the story using both constructs
+                story_requirements = self._convert_with_gemini_intelligence(story, user_stories_construct)
                 requirements.extend(story_requirements)
                 
                 print(f"✅ Story {i} converted to {len(story_requirements)} requirements")
@@ -50,7 +57,7 @@ class RequirementsConverter:
         print(f"🎯 Gemini AI successfully generated {len(requirements)} total requirements!")
         return requirements
     
-    def _convert_with_gemini_intelligence(self, story: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _convert_with_gemini_intelligence(self, story: Dict[str, Any], user_stories_construct: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Use Gemini AI to intelligently analyze and convert user stories to requirements"""
         try:
             # Extract story content
@@ -64,7 +71,7 @@ class RequirementsConverter:
                 return []
             
             # Build advanced AI prompt for intelligent requirements analysis
-            prompt = self._build_intelligent_requirements_prompt(story_text, capability, snippet, team, category)
+            prompt = self._build_intelligent_requirements_prompt(story_text, capability, snippet, team, category, user_stories_construct)
             
             print(f"🧠 Gemini analyzing: {story_text[:100]}...")
             
@@ -83,7 +90,7 @@ class RequirementsConverter:
             print(f"💡 Gemini generated response: {requirements_text[:200]}...")
             
             # Parse the AI response into structured requirements
-            requirements = self._parse_intelligent_requirements_response(requirements_text, story)
+            requirements = self._parse_intelligent_requirements_response(requirements_text, story, self.requirements_construct)
             
             return requirements
             
@@ -91,8 +98,32 @@ class RequirementsConverter:
             print(f"⚠️ Gemini AI conversion failed: {e}")
             return self._convert_with_patterns(story)
     
-    def _build_intelligent_requirements_prompt(self, story_text: str, capability: str, snippet: str, team: str, category: str) -> str:
-        """Build an intelligent AI prompt for advanced requirements analysis"""
+    def _build_intelligent_requirements_prompt(self, story_text: str, capability: str, snippet: str, team: str, category: str, user_stories_construct: Optional[Dict[str, Any]] = None) -> str:
+        """Build an intelligent AI prompt for advanced requirements analysis using both constructs"""
+        
+        # Build user stories construct context
+        user_stories_context = ""
+        if user_stories_construct:
+            user_stories_context = f"""
+USER STORIES CONSTRUCT CONTEXT:
+- Template: {user_stories_construct.get('name', 'Unknown')}
+- Output Schema: {', '.join(user_stories_construct.get('output_schema', []))}
+- Pattern: {user_stories_construct.get('pattern', 'Standard pattern')}
+- Defaults: {', '.join([f'{k}: {v}' for k, v in user_stories_construct.get('defaults', {}).items()])}
+"""
+        
+        # Build requirements construct context
+        requirements_context = ""
+        if self.requirements_construct:
+            requirements_context = f"""
+REQUIREMENTS CONSTRUCT CONTEXT:
+- Template: {self.requirements_construct.get('name', 'Unknown')}
+- Output Schema: {', '.join(self.requirements_construct.get('output_schema', []))}
+- Pattern: {self.requirements_construct.get('pattern', 'Standard pattern')}
+- Defaults: {', '.join([f'{k}: {v}' for k, v in self.requirements_construct.get('defaults', {}).items()])}
+- Priority Rules: {'; '.join(self.requirements_construct.get('priority_rules', []))}
+"""
+        
         return f"""
 You are an expert business analyst and requirements engineer with deep expertise in software development, business processes, and system architecture. Your task is to analyze the provided user story and generate comprehensive, actionable requirements using advanced analysis techniques.
 
@@ -105,6 +136,10 @@ CONTEXTUAL INFORMATION:
 - Category: {category}
 - Technical Context: {snippet}
 
+{user_stories_context}
+
+{requirements_context}
+
 ANALYSIS APPROACH:
 1. **Business Impact Analysis**: Identify the business value, stakeholders, and success metrics
 2. **Functional Decomposition**: Break down the user story into logical functional components
@@ -114,7 +149,9 @@ ANALYSIS APPROACH:
 
 REQUIREMENTS GENERATION GUIDELINES:
 
-**REQ-ID**: Create descriptive, hierarchical identifiers (e.g., "REQ-AUTH-001", "REQ-WF-002", "REQ-INT-003")
+**OUTPUT SCHEMA**: You MUST generate requirements that match the exact output schema defined above. Each requirement should include ALL required fields.
+
+**REQ-ID**: Create descriptive, hierarchical identifiers (e.g., "REQ-001", "REQ-AUTH-001")
 
 **HIGH-LEVEL REQUIREMENT**: Extract the core business need, focusing on:
 - What the system must accomplish
@@ -122,7 +159,7 @@ REQUIREMENTS GENERATION GUIDELINES:
 - What business value it delivers
 - How it fits into the overall system architecture
 
-**PRIORITY LEVEL**: Use intelligent analysis to determine priority:
+**PRIORITY LEVEL**: Use the priority rules defined above to determine priority:
 - HIGH: Critical business functions, security, compliance, revenue impact, customer-facing features
 - MEDIUM: Important operational features, user experience improvements, efficiency gains
 - LOW: Nice-to-have features, future enhancements, minor improvements
@@ -137,18 +174,9 @@ REQUIREMENTS GENERATION GUIDELINES:
 - Implementation constraints and assumptions
 
 OUTPUT FORMAT:
-Generate 2-4 requirements per user story. For each requirement, use this exact format:
+Generate 2-4 requirements per user story. For each requirement, use this exact format matching the output schema:
 
-REQ-ID: [descriptive identifier]
-REQUIREMENT: [high-level business requirement]
-PRIORITY: [LOW/MEDIUM/HIGH]
-REQ-DETAILS: [comprehensive specification with acceptance criteria]
-
-EXAMPLE OUTPUT:
-REQ-ID: REQ-AUTH-001
-REQUIREMENT: Implement secure user authentication system with role-based access control
-PRIORITY: HIGH
-REQ-DETAILS: System must support secure login with username/password authentication, implement multi-factor authentication (MFA), enforce password complexity rules (minimum 8 characters, uppercase, lowercase, numbers, special characters), provide password reset functionality with secure token-based verification, implement session management with configurable timeout (default 30 minutes), and support role-based access control with predefined user roles (Admin, Manager, User). Must integrate with existing LDAP/Active Directory systems and provide audit logging for all authentication events.
+{self._build_output_format_instructions()}
 
 Use your expertise to analyze the user story thoroughly and generate requirements that are:
 - Clear and unambiguous
@@ -156,11 +184,35 @@ Use your expertise to analyze the user story thoroughly and generate requirement
 - Aligned with business objectives
 - Technically feasible
 - Comprehensive yet focused
+- EXACTLY matching the defined output schema
 
 Focus on creating requirements that developers can implement and testers can validate.
 """
+
+    def _build_output_format_instructions(self) -> str:
+        """Build the output format instructions based on the requirements construct"""
+        if not self.requirements_construct:
+            return """
+REQ-ID: [descriptive identifier]
+REQUIREMENT: [high-level business requirement]
+PRIORITY: [LOW/MEDIUM/HIGH]
+REQ-DETAILS: [comprehensive specification with acceptance criteria]
+"""
+        
+        schema = self.requirements_construct.get('output_schema', [])
+        defaults = self.requirements_construct.get('defaults', {})
+        
+        format_lines = []
+        for field in schema:
+            default_value = defaults.get(field, '')
+            if default_value:
+                format_lines.append(f"{field.upper()}: [{default_value}]")
+            else:
+                format_lines.append(f"{field.upper()}: [value]")
+        
+        return '\n'.join(format_lines)
     
-    def _parse_intelligent_requirements_response(self, response_text: str, source_story: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _parse_intelligent_requirements_response(self, response_text: str, source_story: Dict[str, Any], requirements_construct: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Parse the intelligent AI response into structured requirements"""
         requirements = []
         current_req = {}

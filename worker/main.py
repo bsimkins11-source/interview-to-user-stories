@@ -129,13 +129,15 @@ def process_documents_with_ai(documents, construct):
         print(f"Error in AI document processing: {str(e)}")
         raise
 
-def convert_stories_to_requirements(user_stories):
-    """Convert user stories to requirements using Gemini AI"""
+def convert_stories_to_requirements(user_stories, user_stories_construct):
+    """Convert user stories to requirements using Gemini AI with both constructs"""
     try:
         print("🔄 Starting requirements conversion with Gemini AI...")
+        print(f"📊 User stories construct: {user_stories_construct.get('name', 'Unknown') if user_stories_construct else 'None'}")
+        print(f"📋 Requirements construct: {requirements_converter.requirements_construct.get('name', 'Unknown') if requirements_converter.requirements_construct else 'None'}")
         
         # Use the requirements converter to generate requirements
-        requirements = requirements_converter.convert_stories_to_requirements(user_stories)
+        requirements = requirements_converter.convert_stories_to_requirements(user_stories, user_stories_construct)
         
         print(f"📋 Successfully converted {len(user_stories)} stories to {len(requirements)} requirements")
         return requirements
@@ -246,6 +248,7 @@ def process_job(job_id: str):
         
         job_data = job_doc.to_dict()
         construct = job_data.get('construct', {})
+        requirements_construct = job_data.get('requirements_construct', {})
         
         # Step 3: Process documents with AI to extract user stories
         print("🤖 Step 2: Processing documents with AI...")
@@ -253,7 +256,13 @@ def process_job(job_id: str):
         
         # Step 4: Convert user stories to requirements using Gemini AI
         print("🔄 Step 3: Converting user stories to requirements...")
-        requirements = convert_stories_to_requirements(user_stories)
+        
+        # Update requirements converter with the requirements construct
+        if requirements_construct:
+            requirements_converter.requirements_construct = requirements_construct
+            print(f"📋 Using requirements construct: {requirements_construct.get('name', 'Unknown')}")
+        
+        requirements = convert_stories_to_requirements(user_stories, construct)
         
         # Step 5: Generate and upload CSV files
         print("📊 Step 4: Generating and uploading results...")
