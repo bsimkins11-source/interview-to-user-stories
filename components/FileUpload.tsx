@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Upload, FileText, CheckCircle, X, AlertCircle, ArrowLeft } from 'lucide-react';
-import { api, apiEndpoints } from '../lib/api';
+import { createJob } from '../lib/api';
 import { useToast } from './ui/use-toast';
 
 interface FileUploadProps {
@@ -48,15 +48,19 @@ export function FileUpload({ construct, onUploadComplete, onBack }: FileUploadPr
     setUploadProgress(0);
 
     try {
-      // Create job
-      const jobResponse = await api(apiEndpoints.jobs.create, {
-        method: 'POST',
-        body: JSON.stringify({
-          name: `Interview Processing - ${new Date().toLocaleDateString()}`,
-          description: `Processing ${uploadedFile.name} with ${construct.name} construct`,
-          custom_construct: construct
-        })
-      });
+      // Create transcripts array from the uploaded file
+      const transcripts = [{
+        id: `transcript-${Date.now()}`,
+        type: 'file',
+        name: uploadedFile.name,
+        source: uploadedFile.name,
+        status: 'completed',
+        size: uploadedFile.size,
+        file: uploadedFile
+      }];
+
+      // Create job using the new API structure
+      const jobResponse = await createJob(construct, transcripts);
 
       setJobData(jobResponse);
 
@@ -71,30 +75,21 @@ export function FileUpload({ construct, onUploadComplete, onBack }: FileUploadPr
         });
       }, 200);
 
-      // Upload file to GCS
-      await fetch(jobResponse.upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/zip' },
-        body: uploadedFile
-      });
-
-      // Mark upload complete
-      await api(apiEndpoints.jobs.uploadComplete(jobResponse.id), {
-        method: 'POST'
-      });
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      toast({
-        title: "Upload successful!",
-        description: "Your files are now being processed by our AI.",
-      });
-
-      // Wait a moment to show completion, then proceed
+      // Simulate processing time
       setTimeout(() => {
-        onUploadComplete(jobResponse);
-      }, 1000);
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+
+        toast({
+          title: "Upload successful!",
+          description: "Your files are now being processed by our AI.",
+        });
+
+        // Wait a moment to show completion, then proceed
+        setTimeout(() => {
+          onUploadComplete(jobResponse);
+        }, 1000);
+      }, 2000);
 
     } catch (error) {
       console.error('Upload error:', error);

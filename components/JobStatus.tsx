@@ -6,8 +6,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
-import { apiEndpoints } from '../lib/api';
-import { api } from '../lib/api';
+import { getJobStatus } from '../lib/api';
 
 interface JobStatusProps {
   jobId: string;
@@ -32,7 +31,7 @@ export function JobStatus({ jobId, onComplete, onBack }: JobStatusProps) {
 
     const pollJob = async () => {
       try {
-        const response = await api(apiEndpoints.jobs.get(jobId));
+        const response = await getJobStatus(jobId);
         setJobData(response);
         
         if (response.status === 'COMPLETED' || response.status === 'FAILED') {
@@ -60,7 +59,7 @@ export function JobStatus({ jobId, onComplete, onBack }: JobStatusProps) {
     setIsPolling(true);
     setError(null);
     try {
-      const response = await api(apiEndpoints.jobs.get(jobId));
+      const response = await getJobStatus(jobId);
       setJobData(response);
       if (response.status === 'COMPLETED') {
         onComplete(response);

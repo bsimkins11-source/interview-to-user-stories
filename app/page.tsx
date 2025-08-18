@@ -58,6 +58,7 @@ export default function HomePage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>('idle');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState<number>(0);
   const [forceRefresh, setForceRefresh] = useState(0); // Add force refresh state
   const [requirements, setRequirements] = useState<any[]>([]); // Add requirements state
   const [requirementsConstruct, setRequirementsConstruct] = useState<Construct | null>(null); // Add requirements construct state
@@ -349,7 +350,6 @@ export default function HomePage() {
 
       // Create job
       const job = await createJob(construct, transcripts);
-      setJob(job);
       setJobId(job.id);
 
       toast({
