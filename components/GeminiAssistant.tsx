@@ -14,12 +14,43 @@ interface GeminiAssistantProps {
 }
 
 export function GeminiAssistant({ currentStep, construct, userStories }: GeminiAssistantProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(currentStep === 'home'); // Open by default on home page
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
   const getStepContext = () => {
     switch (currentStep) {
+      case 'home':
+        return {
+          title: "AI Assistant - Interview ETL",
+          description: "I'm here to help you understand the app experience, process, and answer questions about your vectorized interview data",
+          icon: MessageCircle,
+          color: "purple",
+          suggestions: [
+            "How does the Interview ETL process work?",
+            "What can I do with vectorized interview data?",
+            "How do I get started with the app?",
+            "What are the best practices for interview processing?",
+            "How does the AI extraction work?",
+            "Can you explain the vectorization process?",
+            "What file formats are supported?",
+            "How does the requirements generation work?",
+            "What makes this different from other tools?",
+            "How do I optimize my interview questions?"
+          ],
+          capabilities: [
+            "App experience guidance",
+            "Process explanation",
+            "Vectorized data insights",
+            "AI extraction details",
+            "Best practices",
+            "Getting started help",
+            "File format support",
+            "Requirements generation",
+            "Interview optimization",
+            "Data analysis guidance"
+          ]
+        };
       case 'construct':
         return {
           title: "Define Output Structure",
@@ -176,139 +207,125 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
 
   return (
     <>
-      {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          onClick={() => setIsOpen(true)}
-          className={`
-            w-16 h-16 rounded-full shadow-lg transform transition-all duration-200 hover:scale-110
-            bg-gradient-to-r from-${context.color}-600 to-${context.color}-700 
-            hover:from-${context.color}-700 hover:to-${context.color}-800
-          `}
-        >
-          <IconComponent className="w-8 h-8" />
-        </Button>
-        <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-          <span className="text-white text-xs font-bold">AI</span>
-        </div>
-      </div>
+      {/* Inline Assistant Panel */}
+      <Card className="w-full border-0 shadow-lg bg-gradient-to-r from-purple-50 to-blue-50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className={`w-12 h-12 rounded-full bg-${context.color}-100 flex items-center justify-center`}>
+                <IconComponent className={`w-6 h-6 text-${context.color}-600`} />
+              </div>
+              <div>
+                <CardTitle className="text-xl">{context.title}</CardTitle>
+                <p className="text-sm text-gray-600">{context.description}</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(!isOpen)}
+              className="h-8 w-8 p-0"
+            >
+              {isOpen ? <X className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
+            </Button>
+          </div>
+        </CardHeader>
 
-      {/* Assistant Panel */}
-      {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-end p-4">
-          <Card className="w-full max-w-md h-[600px] flex flex-col">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-full bg-${context.color}-100 flex items-center justify-center`}>
-                    <IconComponent className={`w-5 h-5 text-${context.color}-600`} />
+        {/* Expandable Content */}
+        {isOpen && (
+          <CardContent className="pt-0 space-y-4">
+            {/* How I Help Section */}
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center space-x-2 mb-3">
+                <Lightbulb className="w-4 h-4 text-yellow-600" />
+                <h3 className="font-semibold text-sm">How I Help</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {context.capabilities.map((capability, index) => (
+                  <div key={index} className="flex items-center space-x-2 text-xs">
+                    <Zap className="w-3 h-3 text-blue-500" />
+                    <span>{capability}</span>
                   </div>
-                  <div>
-                    <CardTitle className="text-lg">{context.title}</CardTitle>
-                    <p className="text-sm text-gray-600">{context.description}</p>
-                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Suggested Questions */}
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center space-x-2 mb-3">
+                <HelpCircle className="w-4 h-4 text-blue-600" />
+                <h3 className="font-semibold text-sm">Suggested Questions</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {context.suggestions.map((suggestion, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start text-left h-auto py-2 px-3 text-xs"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                  >
+                    <BookOpen className="w-3 h-3 mr-2 text-gray-500" />
+                    {suggestion}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Current Context Info */}
+            {construct && (
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <div className="flex items-center space-x-2 mb-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <h3 className="font-semibold text-sm">Current Context</h3>
                 </div>
+                <div className="text-xs space-y-1">
+                  <div><strong>Construct:</strong> {construct.name}</div>
+                  <div><strong>Fields:</strong> {construct.output_schema?.length || 0} output columns</div>
+                  <div><strong>Pattern:</strong> {construct.pattern?.substring(0, 50)}...</div>
+                </div>
+              </div>
+            )}
+
+            {/* Chat Input */}
+            <div className="space-y-3">
+              <div className="flex space-x-2">
+                <Input
+                  placeholder={
+                    currentStep === 'home' 
+                      ? "Ask me about the app experience, process, vectorized data, or anything else..."
+                      : "Ask me anything about this step, the app experience, or your vectorized data..."
+                  }
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                  className="flex-1"
+                />
                 <Button
-                  variant="ghost"
+                  onClick={handleSend}
+                  disabled={!input.trim() || isTyping}
                   size="sm"
-                  onClick={() => setIsOpen(false)}
-                  className="h-8 w-8 p-0"
                 >
-                  <X className="h-4 w-4" />
+                  {isTyping ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
-            </CardHeader>
-
-            <CardContent className="flex-1 flex flex-col space-y-4">
-              {/* How I Help Section */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-3">
-                  <Lightbulb className="w-4 h-4 text-yellow-600" />
-                  <h3 className="font-semibold text-sm">How I Help</h3>
-                </div>
-                <div className="space-y-2">
-                  {context.capabilities.map((capability, index) => (
-                    <div key={index} className="flex items-center space-x-2 text-xs">
-                      <Zap className="w-3 h-3 text-blue-500" />
-                      <span>{capability}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Suggested Questions */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <HelpCircle className="w-4 h-4 text-blue-600" />
-                  <h3 className="font-semibold text-sm">Suggested Questions</h3>
-                </div>
-                <div className="space-y-2">
-                  {context.suggestions.map((suggestion, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-left h-auto py-2 px-3"
-                      onClick={() => handleSuggestionClick(suggestion)}
-                    >
-                      <BookOpen className="w-3 h-3 mr-2 text-gray-500" />
-                      {suggestion}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Current Context Info */}
-              {construct && (
-                <div className="bg-blue-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <FileText className="w-4 h-4 text-blue-600" />
-                    <h3 className="font-semibold text-sm">Current Context</h3>
-                  </div>
-                  <div className="text-xs space-y-1">
-                    <div><strong>Construct:</strong> {construct.name}</div>
-                    <div><strong>Fields:</strong> {construct.output_schema?.length || 0} output columns</div>
-                    <div><strong>Pattern:</strong> {construct.pattern?.substring(0, 50)}...</div>
-                  </div>
+              
+              {isTyping && (
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <span>Gemini is thinking...</span>
                 </div>
               )}
-
-              {/* Chat Input */}
-              <div className="mt-auto space-y-3">
-                <div className="flex space-x-2">
-                  <Input
-                    placeholder="Ask me anything about this step..."
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isTyping}
-                    size="sm"
-                  >
-                    {isTyping ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-                
-                {isTyping && (
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    <span>Gemini is thinking...</span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          </CardContent>
+        )}
+      </Card>
     </>
   );
 }

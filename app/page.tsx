@@ -611,6 +611,14 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="container mx-auto px-4 py-8">
+          {/* Gemini AI Assistant at the top for home page */}
+          <div className="mb-8 max-w-4xl mx-auto">
+            <GeminiAssistant 
+              currentStep="home"
+              construct={construct}
+              userStories={[]}
+            />
+          </div>
           {getStepContent()}
         </div>
       </div>
@@ -647,6 +655,15 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Gemini AI Assistant at the top */}
+        <div className="mb-8 max-w-4xl mx-auto">
+          <GeminiAssistant 
+            currentStep={currentStep}
+            construct={construct}
+            userStories={[]}
+          />
         </div>
 
         {/* Main Content */}
@@ -689,15 +706,6 @@ export default function HomePage() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
-        </div>
-
-        {/* Gemini AI Assistant */}
-        <div className="mt-8 max-w-4xl mx-auto">
-          <GeminiAssistant 
-            currentStep={currentStep}
-            construct={construct}
-            userStories={[]}
-          />
         </div>
       </div>
     </div>
