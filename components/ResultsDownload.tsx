@@ -75,6 +75,7 @@ interface JobStatus {
     output_schema: string[];
     name?: string;
     description?: string;
+    defaults?: Record<string, string>;
   };
 }
 
