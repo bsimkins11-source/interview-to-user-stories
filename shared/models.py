@@ -5,6 +5,7 @@ from enum import Enum
 
 class JobStatus(str, Enum):
     CREATED = "CREATED"
+    UPLOADING = "UPLOADING"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -49,21 +50,25 @@ class ConstructResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
-class UserStory(BaseModel):
-    user_story_id: str
-    user_story: str
-    team: Optional[str]
-    category: Optional[str]
-    lifecycle_phase: Optional[str]
-    capability: Optional[str]
-    priority: Optional[str]
-    source: Optional[str]
-    snippet: Optional[str]
-    match_score: Optional[float]
-    tags: List[str] = Field(default_factory=list)
+class UserStory:
+    def __init__(self, id: str, title: str, description: str, acceptance_criteria: List[str], priority: str, status: str):
+        self.id = id
+        self.title = title
+        self.description = description
+        self.acceptance_criteria = acceptance_criteria
+        self.priority = priority
+        self.status = status
 
 class ProcessingResult(BaseModel):
     total_files: int
     total_stories: int
     processing_time: float
     stories: List[UserStory]
+
+class Requirement:
+    def __init__(self, req_id: str, requirement: str, priority_level: str, req_details: str, source_story_id: Optional[str] = None):
+        self.req_id = req_id
+        self.requirement = requirement
+        self.priority_level = priority_level
+        self.req_details = req_details
+        self.source_story_id = source_story_id  # Link back to original user story

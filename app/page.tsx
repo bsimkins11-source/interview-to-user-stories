@@ -13,8 +13,9 @@ import { JobStatus } from '@/components/JobStatus';
 import { ResultsDownload } from '@/components/ResultsDownload';
 import { GeminiAssistant } from '@/components/GeminiAssistant';
 import { createJob, startProcessing, getJobStatus, createConstruct, uploadFilesToJob } from '@/lib/api';
+import { RequirementsTable } from '@/components/RequirementsTable';
 
-type Step = 'construct' | 'upload' | 'process' | 'download';
+type Step = 'construct' | 'upload' | 'process' | 'download' | 'requirements';
 
 interface Construct {
   name: string;
@@ -57,6 +58,7 @@ export default function HomePage() {
   const [jobStatus, setJobStatus] = useState<string>('idle');
   const [isProcessing, setIsProcessing] = useState(false);
   const [forceRefresh, setForceRefresh] = useState(0); // Add force refresh state
+  const [requirements, setRequirements] = useState<any[]>([]); // Add requirements state
   const { toast } = useToast();
 
   // Add useEffect to watch for construct changes and log them
@@ -76,21 +78,24 @@ export default function HomePage() {
     { id: 'construct', title: 'Define Output Structure', icon: FileText, description: 'Define the structure for your user stories' },
     { id: 'upload', title: 'Upload Interview Transcripts', icon: Upload, description: 'Upload or link to interview transcripts' },
     { id: 'process', title: 'Process & Extract', icon: Play, description: 'AI-powered extraction and processing' },
-    { id: 'download', title: 'Download Results', icon: Download, description: 'Get your structured user stories' }
+    { id: 'download', title: 'Download Results', icon: Download, description: 'Get your structured user stories' },
+    { id: 'requirements', title: 'Requirements', icon: FileText, description: 'Convert user stories to requirements' }
   ];
 
   const canProceedToNext = () => {
     const canProceed = (() => {
       switch (currentStep) {
         case 'construct':
-          // For construct step, we can proceed if we have a construct OR if we're in the process of saving
+          // For construct step, we can proceed if we have a construct
           return construct !== null;
         case 'upload':
           return construct !== null && transcripts.length > 0;
         case 'process':
           return construct !== null && transcripts.length > 0;
         case 'download':
-          return false;
+          return construct !== null && transcripts.length > 0;
+        case 'requirements':
+          return construct !== null && transcripts.length > 0;
         default:
           return false;
       }
@@ -112,11 +117,20 @@ export default function HomePage() {
   };
 
   const handleNext = () => {
+    console.log('handleNext called - checking if we can proceed...');
+    console.log('canProceedToNext():', canProceedToNext());
+    
     if (canProceedToNext()) {
       const currentIndex = steps.findIndex(step => step.id === currentStep);
+      console.log('Current step index:', currentIndex, 'Total steps:', steps.length);
+      
       if (currentIndex < steps.length - 1) {
-        setCurrentStep(steps[currentIndex + 1].id as Step);
+        const nextStep = steps[currentIndex + 1].id as Step;
+        console.log('Moving to next step:', nextStep);
+        setCurrentStep(nextStep);
       }
+    } else {
+      console.log('Cannot proceed to next step');
     }
   };
 
@@ -144,17 +158,13 @@ export default function HomePage() {
         description: `Your output structure "${newConstruct.name}" has been defined with ${newConstruct.output_schema.length} fields.`,
       });
       
-      // Debug: Check if we can proceed
-      console.log('Can proceed to next:', canProceedToNext());
-      console.log('Current construct state:', construct);
-      
       // Force a state refresh to ensure UI updates
       setForceRefresh(prev => prev + 1);
       
-      // Force navigation to next step after a short delay to ensure state is updated
+      // Wait for state to update, then check navigation
       setTimeout(() => {
         console.log('Timeout callback - checking navigation...');
-        console.log('Construct state in timeout:', construct);
+        console.log('Current construct state:', construct);
         console.log('Can proceed check:', canProceedToNext());
         
         if (canProceedToNext()) {
@@ -164,7 +174,7 @@ export default function HomePage() {
           console.log('Cannot auto-advance, manual navigation required');
           console.log('Current state:', { currentStep, construct: !!construct });
         }
-      }, 500); // Reduced delay since we're forcing refresh
+      }, 100); // Reduced delay since we're forcing refresh
       
     } catch (error) {
       console.error('Error saving construct:', error);
@@ -212,73 +222,70 @@ export default function HomePage() {
 
     try {
       setIsProcessing(true);
-      setJobStatus('processing');
+      setJobStatus('creating');
 
-      // Create job in backend
-      const jobResponse = await createJob(construct, transcripts);
-      const newJobId = jobResponse.id;
-      setJobId(newJobId);
-
-      // Upload files if there are file transcripts
-      const fileTranscripts = transcripts.filter(t => t.type === 'file' && t.file);
-      if (fileTranscripts.length > 0) {
-        const files = fileTranscripts.map(t => t.file!).filter(Boolean);
-        try {
-          await uploadFilesToJob(newJobId, files);
-        } catch (uploadError) {
-          console.error('File upload failed:', uploadError);
-          toast({
-            title: "File upload failed",
-            description: "Some files failed to upload. Please try again.",
-            variant: "destructive",
-          });
-          setIsProcessing(false);
-          setJobStatus('idle');
-          return;
-        }
-      }
-
-      // Start processing
-      await startProcessing(newJobId);
-      
-      // Poll for job status
-      const pollStatus = async () => {
-        try {
-          const statusResponse = await getJobStatus(newJobId);
-          setJobStatus(statusResponse.status);
-          
-          if (statusResponse.status === 'COMPLETED') {
-            setCurrentStep('download');
-            setIsProcessing(false);
-            toast({
-              title: "Processing completed!",
-              description: "Your user stories are ready for download.",
-            });
-          } else if (statusResponse.status === 'FAILED') {
-            setIsProcessing(false);
-            toast({
-              title: "Processing failed",
-              description: statusResponse.error || "An error occurred during processing",
-              variant: "destructive",
-            });
-          } else if (statusResponse.status === 'PROCESSING') {
-            // Continue polling
-            setTimeout(pollStatus, 5000);
-          }
-        } catch (error) {
-          console.error('Error polling job status:', error);
-          setIsProcessing(false);
-        }
-      };
-
-      // Start polling
-      setTimeout(pollStatus, 2000);
-
-      toast({
-        title: "Processing started!",
-        description: "Your interview transcripts are being processed by AI.",
+      // Create job
+      const job = await createJob({
+        name: `Interview ETL Job - ${new Date().toLocaleDateString()}`,
+        description: `Processing ${transcripts.length} transcript(s) with construct "${construct.name}"`,
+        construct: construct,
+        transcripts: transcripts,
       });
+
+      setJobId(job);
+      setJobStatus('uploading');
+
+      // Upload files
+      const files = transcripts
+        .filter(t => t.file)
+        .map(t => t.file!)
+        .filter(Boolean);
+
+      if (files.length > 0) {
+        await uploadFilesToJob(job, files);
+        setJobStatus('processing');
+
+        // Start processing
+        await startProcessing(job);
+
+        // Poll for completion
+        const pollInterval = setInterval(async () => {
+          try {
+            const status = await getJobStatus(job);
+            setJobStatus(status.status);
+
+            if (status.status === 'COMPLETED') {
+              setIsProcessing(false);
+              clearInterval(pollInterval);
+              
+              // Extract requirements from the completed job
+              if (status.requirements_count && status.requirements_count > 0) {
+                // TODO: Fetch requirements from backend
+                // For now, generate sample requirements
+                const sampleRequirements = generateSampleRequirements(status.user_stories_count || 0);
+                setRequirements(sampleRequirements);
+              }
+              
+              toast({
+                title: "Processing complete!",
+                description: `Generated ${status.user_stories_count || 0} user stories and ${status.requirements_count || 0} requirements.`,
+              });
+            } else if (status.status === 'FAILED') {
+              setIsProcessing(false);
+              clearInterval(pollInterval);
+              toast({
+                title: "Processing failed",
+                description: status.error || "An error occurred during processing",
+                variant: "destructive",
+              });
+            }
+          } catch (error) {
+            console.error('Error polling job status:', error);
+          }
+        }, 2000);
+      }
     } catch (error) {
+      console.error('Error starting processing:', error);
       setIsProcessing(false);
       setJobStatus('idle');
       toast({
@@ -287,6 +294,21 @@ export default function HomePage() {
         variant: "destructive",
       });
     }
+  };
+
+  const generateSampleRequirements = (storyCount: number) => {
+    // Generate sample requirements for demonstration
+    const sampleRequirements = [];
+    for (let i = 1; i <= Math.min(storyCount, 5); i++) {
+      sampleRequirements.push({
+        req_id: `REQ-${String(i).padStart(3, '0')}`,
+        requirement: `Implement requirement ${i} based on user story analysis`,
+        priority_level: i === 1 ? 'HIGH' : i <= 3 ? 'MEDIUM' : 'LOW' as 'LOW' | 'MEDIUM' | 'HIGH',
+        req_details: `Detailed specification for requirement ${i}. This includes functional requirements, acceptance criteria, and technical specifications.`,
+        source_story_id: `US-${i}`
+      });
+    }
+    return sampleRequirements;
   };
 
   const getStepContent = () => {
@@ -510,6 +532,40 @@ export default function HomePage() {
           </div>
         );
 
+      case 'requirements':
+        return (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-bold">Requirements Generation</h2>
+              <p className="text-muted-foreground">
+                AI-powered conversion of user stories into structured requirements with priority levels and detailed specifications.
+              </p>
+            </div>
+            
+            {/* Show requirements table */}
+            <RequirementsTable
+              requirements={requirements}
+              onRequirementsChange={setRequirements}
+              onDownload={() => {
+                // Handle requirements download
+                console.log('Downloading requirements...');
+              }}
+            />
+            
+            {/* Progress indicator */}
+            <div className="bg-slate-50 rounded-lg p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span>Progress:</span>
+                <span className="font-medium">
+                  {construct ? '✅ Output structure defined' : '❌ Output structure needed'} • {' '}
+                  {transcripts.length > 0 ? `✅ ${transcripts.length} transcript(s) added` : '❌ No transcripts added'} • {' '}
+                  {requirements.length > 0 ? `✅ ${requirements.length} requirements generated` : '❌ No requirements yet'}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -521,10 +577,10 @@ export default function HomePage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Interview ETL - User Stories Generator
+            User Stories & Requirements Generator
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Transform interview transcripts into structured user stories using AI-powered extraction
+            Transform interview transcripts into structured user stories and requirements using AI-powered extraction
           </p>
         </div>
 
