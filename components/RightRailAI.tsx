@@ -20,13 +20,20 @@ export function RightRailAI({ currentStep, construct, userStories }: RightRailAI
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   
-  // Persistent chat history that persists across visits
+  // Debug logging
+  useEffect(() => {
+    console.log('RightRailAI mounted with:', { currentStep, construct, userStories });
+  }, [currentStep, construct, userStories]);
+  
+  // Session-based chat history that persists across page navigation
   const [chatHistory, setChatHistory] = useState<Array<{type: 'user' | 'assistant', message: string, timestamp: Date}>>(() => {
+    // Initialize from localStorage if available, otherwise empty array
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('gemini-chat-history');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
+          // Convert timestamp strings back to Date objects
           return parsed.map((chat: any) => ({
             ...chat,
             timestamp: new Date(chat.timestamp)
@@ -480,22 +487,45 @@ export function RightRailAI({ currentStep, construct, userStories }: RightRailAI
     <>
       {/* Floating AI Button - Always visible */}
       <div 
-        className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => !isOpen && setIsHovered(false)}
+        className="fixed right-4 top-1/2 transform -translate-y-1/2 z-[9999]"
+        onMouseEnter={() => {
+          console.log('Mouse enter on AI button');
+          setIsHovered(true);
+        }}
+        onMouseLeave={() => {
+          console.log('Mouse leave on AI button');
+          !isOpen && setIsHovered(false);
+        }}
+        style={{ 
+          position: 'fixed',
+          right: '16px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 9999
+        }}
       >
         <Button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => {
+            console.log('AI Button clicked, current state:', { isOpen, isHovered });
+            setIsOpen(!isOpen);
+          }}
           className={`
-            w-14 h-14 rounded-full shadow-lg transition-all duration-300 ease-in-out
+            w-16 h-16 rounded-full shadow-2xl transition-all duration-300 ease-in-out
             ${isOpen 
-              ? 'bg-blue-600 hover:bg-blue-700 scale-110' 
+              ? 'bg-red-600 hover:bg-red-700 scale-110' 
               : isHovered 
-                ? 'bg-blue-500 hover:bg-blue-600 scale-105' 
+                ? 'bg-green-500 hover:bg-green-600 scale-105' 
                 : 'bg-blue-500 hover:bg-blue-600'
             }
           `}
           size="lg"
+          style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '3px solid white'
+          }}
         >
           <Bot className="w-6 h-6" />
         </Button>
@@ -512,9 +542,21 @@ export function RightRailAI({ currentStep, construct, userStories }: RightRailAI
       {/* Slide-out AI Panel */}
       <div 
         className={`
-          fixed right-0 top-0 h-full w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-40
+          fixed right-0 top-0 h-full w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-[9998]
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
+        style={{ 
+          position: 'fixed',
+          right: 0,
+          top: 0,
+          height: '100%',
+          width: '384px',
+          backgroundColor: 'white',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 300ms ease-in-out',
+          zIndex: 9998
+        }}
       >
         <Card className="h-full border-0 shadow-none rounded-none">
           <CardHeader className="pb-3 border-b bg-gradient-to-r from-blue-50 to-purple-50">
@@ -541,10 +583,10 @@ export function RightRailAI({ currentStep, construct, userStories }: RightRailAI
           </CardHeader>
 
           <CardContent className="p-4 h-full flex flex-col">
-            {/* Chat History */}
-            <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+            {/* Chat History - Reduced bottom margin */}
+            <div className="flex-1 overflow-y-auto space-y-3 mb-2">
               {chatHistory.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
+                <div className="text-center text-gray-500 py-6">
                   <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <p className="text-sm">Start a conversation to get help with the Interview ETL process</p>
                 </div>
@@ -582,9 +624,9 @@ export function RightRailAI({ currentStep, construct, userStories }: RightRailAI
               )}
             </div>
 
-            {/* Quick Suggestions */}
+            {/* Quick Suggestions - Reduced margin */}
             {chatHistory.length === 0 && (
-              <div className="mb-4">
+              <div className="mb-3">
                 <p className="text-xs text-gray-500 mb-2">Quick questions:</p>
                 <div className="flex flex-wrap gap-2">
                   {context.suggestions.slice(0, 3).map((suggestion, index) => (
@@ -602,8 +644,8 @@ export function RightRailAI({ currentStep, construct, userStories }: RightRailAI
               </div>
             )}
 
-            {/* Chat Input */}
-            <div className="flex space-x-2">
+            {/* Chat Input - Moved up with reduced margins */}
+            <div className="flex space-x-2 mb-2">
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -622,9 +664,9 @@ export function RightRailAI({ currentStep, construct, userStories }: RightRailAI
               </Button>
             </div>
 
-            {/* Clear Chat Button */}
+            {/* Clear Chat Button - Reduced margin */}
             {chatHistory.length > 0 && (
-              <div className="mt-3 text-center">
+              <div className="text-center">
                 <Button
                   variant="ghost"
                   size="sm"
