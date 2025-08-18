@@ -1,20 +1,37 @@
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
 
 class JobStatus(str, Enum):
     CREATED = "CREATED"
+    UPLOADING = "UPLOADING"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
+class Construct(BaseModel):
+    name: str
+    description: Optional[str] = None
+    output_schema: List[str]
+    pattern: str
+    defaults: Dict[str, str]
+    priority_rules: List[str]
+
+class TranscriptInput(BaseModel):
+    id: str
+    type: str  # 'file', 'folder', 'document'
+    name: str
+    source: str
+    status: str
+    size: Optional[int] = None
+    file_count: Optional[int] = None
+
 class JobCreate(BaseModel):
-    name: Optional[str] = Field(None, description="Job name")
-    description: Optional[str] = Field(None, description="Job description")
-    construct: Dict[str, Any] = Field(..., description="Construct template data")
-    transcripts: List[Dict[str, Any]] = Field(..., description="Transcript information")
-    status: str = Field(default="CREATED", description="Job status")
+    name: Optional[str] = None
+    description: Optional[str] = None
+    construct: Dict[str, Any]
+    transcripts: List[Dict[str, Any]]
 
 class JobResponse(BaseModel):
     id: str
@@ -23,33 +40,23 @@ class JobResponse(BaseModel):
     status: JobStatus
     construct: Dict[str, Any]
     transcripts: List[Dict[str, Any]]
-    files: List[Dict[str, Any]] = Field(default_factory=list)
-    upload_url: Optional[str]
-    csv_url: Optional[str]
+    files: List[Dict[str, Any]]
+    user_stories_count: Optional[int] = None
+    requirements_count: Optional[int] = None
+    stories_csv_url: Optional[str] = None
+    requirements_csv_url: Optional[str] = None
+    processing_time: Optional[float] = None
+    error: Optional[str] = None
     created_at: datetime
-    updated_at: Optional[datetime]
-    completed_at: Optional[datetime]
-    error_message: Optional[str]
-    metrics: Optional[Dict[str, Any]]
+    updated_at: datetime
+    completed_at: Optional[datetime] = None
 
-class ConstructCreate(BaseModel):
-    name: str = Field(..., description="Construct name")
-    description: Optional[str] = Field(None, description="Construct description")
-    output_schema: List[str] = Field(..., description="Output CSV column headers")
-    pattern: str = Field(..., description="User story pattern template")
-    defaults: Dict[str, str] = Field(default_factory=dict, description="Default values for columns")
-    priority_rules: List[str] = Field(default_factory=list, description="Priority classification rules")
-
-class ConstructResponse(BaseModel):
-    id: str
-    name: str
-    description: Optional[str]
-    output_schema: List[str]
-    pattern: str
-    defaults: Dict[str, str]
-    priority_rules: List[str]
-    created_at: datetime
-    updated_at: Optional[datetime]
+class Requirement(BaseModel):
+    req_id: str
+    requirement: str
+    priority_level: str  # 'LOW', 'MEDIUM', 'HIGH'
+    req_details: str
+    source_story_id: Optional[str] = None
 
 class UserStory(BaseModel):
     user_story_id: str
@@ -65,7 +72,8 @@ class UserStory(BaseModel):
     tags: List[str] = Field(default_factory=list)
 
 class ProcessingResult(BaseModel):
-    total_files: int
-    total_stories: int
+    job_id: str
+    status: str
     processing_time: float
     stories: List[UserStory]
+    requirements: Optional[List[Requirement]] = None

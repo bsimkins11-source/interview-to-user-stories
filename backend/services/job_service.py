@@ -63,20 +63,32 @@ class JobService:
         except Exception:
             return False
     
-    async def update_job_completion(self, job_id: str, csv_url: str, metrics: dict) -> bool:
-        """Update job with completion data"""
+    async def update_job_completion(self, job_id: str, user_stories_count: int, requirements_count: int, stories_csv_url: str = None, requirements_csv_url: str = None, processing_time: float = None):
+        """Update job with completion details"""
         try:
-            now = datetime.utcnow()
-            doc_ref = self.collection.document(job_id)
-            doc_ref.update({
+            update_data = {
                 "status": JobStatus.COMPLETED.value,
-                "csv_url": csv_url,
-                "metrics": metrics,
-                "completed_at": now,
-                "updated_at": now
-            })
+                "user_stories_count": user_stories_count,
+                "requirements_count": requirements_count,
+                "completed_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            if stories_csv_url:
+                update_data["stories_csv_url"] = stories_csv_url
+            if requirements_csv_url:
+                update_data["requirements_csv_url"] = requirements_csv_url
+            if processing_time:
+                update_data["processing_time"] = processing_time
+            
+            doc_ref = self.collection.document(job_id)
+            doc_ref.update(update_data)
+            
+            print(f"✅ Job {job_id} marked as completed with {user_stories_count} stories and {requirements_count} requirements")
             return True
-        except Exception:
+            
+        except Exception as e:
+            print(f"❌ Error updating job completion: {e}")
             return False
     
     async def list_jobs(self, limit: int = 50) -> List[dict]:
