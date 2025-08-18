@@ -79,7 +79,24 @@ export const RequirementSchema = z.object({
 });
 
 // File validation schemas
-export const FileValidation = {
+export const FileValidation: {
+  maxSize: {
+    zip: number;
+    document: number;
+    text: number;
+  };
+  allowedTypes: {
+    zip: string[];
+    document: string[];
+    text: string[];
+  };
+  validateFileSize: (file: File, type: 'zip' | 'document' | 'text') => boolean;
+  validateFileType: (file: File, type: 'zip' | 'document' | 'text') => boolean;
+  validateFile: (file: File, type: 'zip' | 'document' | 'text') => {
+    isValid: boolean;
+    errors: string[];
+  };
+} = {
   // File size limits (in bytes)
   maxSize: {
     zip: 100 * 1024 * 1024, // 100MB

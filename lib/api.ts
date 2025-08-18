@@ -163,7 +163,7 @@ async function fetchWithEnterpriseFeatures(
     // If we have retries left and it's a retryable error, retry
     if (retries > 0 && (
       error instanceof TypeError || 
-      error.message.includes('timeout') ||
+      (error instanceof Error && error.message.includes('timeout')) ||
       (error instanceof APIError && error.retryable)
     )) {
       console.warn(`API request failed, retrying... (${retries} retries left)`);

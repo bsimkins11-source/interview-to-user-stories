@@ -25,6 +25,7 @@ export interface UserJourney {
   success: boolean;
   errors?: string[];
   timestamp: number;
+  category: 'workflow' | 'api' | 'user-interaction' | 'file-upload' | 'ai-processing';
 }
 
 class Analytics {
@@ -80,18 +81,20 @@ class Analytics {
   // Track workflow progression
   trackWorkflowStep(step: string, success: boolean, duration: number, errors?: string[]): void {
     this.trackEvent('workflow_step', 'workflow', success ? 'completed' : 'failed', step);
-    this.addUserJourneyStep(step, duration, success, errors);
+    this.addUserJourneyStep(step, duration, success, errors, 'workflow');
   }
 
   // Track file uploads
   trackFileUpload(fileName: string, fileSize: number, fileType: string, success: boolean): void {
     this.trackEvent('file_upload', 'files', success ? 'success' : 'failure', fileName, fileSize);
+    this.addUserJourneyStep('file_upload', 0, success, undefined, 'file-upload');
   }
 
   // Track AI processing
   trackAIProcessing(step: string, duration: number, success: boolean, model?: string): void {
     this.trackEvent('ai_processing', 'ai', step, model, duration);
     this.addPerformanceMetric('ai_processing_time', duration, 'ms', 'api');
+    this.addUserJourneyStep(step, duration, success, undefined, 'ai-processing');
   }
 
   // Track errors
@@ -115,13 +118,14 @@ class Analytics {
   }
 
   // Add user journey step
-  addUserJourneyStep(step: string, duration: number, success: boolean, errors?: string[]): void {
+  addUserJourneyStep(step: string, duration: number, success: boolean, errors?: string[], category: UserJourney['category'] = 'workflow'): void {
     this.userJourney.push({
       step,
       duration,
       success,
       errors,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      category
     });
   }
 
@@ -255,7 +259,13 @@ class Analytics {
     events: AnalyticsEvent[];
     performanceMetrics: PerformanceMetric[];
     userJourney: UserJourney[];
-    summary: ReturnType<typeof this.getAnalyticsSummary>;
+    summary: {
+      totalEvents: number;
+      sessionDuration: number;
+      workflowCompletionRate: number;
+      averageApiResponseTime: number;
+      errorRate: number;
+    };
   } {
     return {
       events: [...this.events],
