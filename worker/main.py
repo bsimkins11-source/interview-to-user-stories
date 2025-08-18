@@ -78,6 +78,81 @@ def initialize_services():
         logger.error(f"❌ Failed to initialize processors: {e}")
         raise
 
+# -----------------------------
+# Utility: Conditional vectorization
+# -----------------------------
+def _estimate_tokens_from_text_length(char_count: int) -> int:
+    """Rough token estimate (~4 chars per token for English)."""
+    return max(1, char_count // 4)
+
+def _should_vectorize(documents: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Decide whether to vectorize based on size/complexity. Configurable via env.
+
+    Env overrides (optional):
+      VECTORIZE_MIN_TOKENS (default 30000)
+      VECTORIZE_MIN_PARAGRAPHS (default 800)
+      VECTORIZE_MIN_DOCS (default 3)
+    """
+    try:
+        min_tokens = int(os.getenv('VECTORIZE_MIN_TOKENS', '30000'))
+        min_paragraphs = int(os.getenv('VECTORIZE_MIN_PARAGRAPHS', '800'))
+        min_docs = int(os.getenv('VECTORIZE_MIN_DOCS', '3'))
+    except ValueError:
+        min_tokens, min_paragraphs, min_docs = 30000, 800, 3
+
+    total_chars = 0
+    total_paragraphs = 0
+    doc_count = len(documents or [])
+
+    for d in documents or []:
+        content = d.get('content', '') or ''
+        total_chars += len(content)
+        total_paragraphs += len(d.get('paragraphs', []) or [])
+
+    est_tokens = _estimate_tokens_from_text_length(total_chars)
+
+    should = (est_tokens >= min_tokens) or (total_paragraphs >= min_paragraphs) or (doc_count >= min_docs)
+
+    return {
+        'should_vectorize': should,
+        'metrics': {
+            'doc_count': doc_count,
+            'total_chars': total_chars,
+            'estimated_tokens': est_tokens,
+            'total_paragraphs': total_paragraphs,
+            'thresholds': {
+                'min_tokens': min_tokens,
+                'min_paragraphs': min_paragraphs,
+                'min_docs': min_docs
+            }
+        }
+    }
+
+def _build_naive_chunks_from_documents(documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Create simple text chunks from paragraphs so downstream context code works without embeddings."""
+    chunks: List[Dict[str, Any]] = []
+    if not documents:
+        return chunks
+    for doc in documents:
+        filename = doc.get('filename', 'unknown')
+        paragraphs = doc.get('paragraphs', []) or []
+        for idx, p in enumerate(paragraphs):
+            if p and p.strip():
+                chunks.append({
+                    'id': f"{filename}_p_{idx}",
+                    'text': p.strip(),
+                    'embedding': None,  # not available
+                    'metadata': {
+                        'filename': filename,
+                        'chunk_index': idx,
+                        'total_chunks': len(paragraphs),
+                        'file_type': doc.get('file_type', 'unknown'),
+                        'size': doc.get('size', 0),
+                        'source_transcript': doc
+                    }
+                })
+    return chunks
+
 # Initialize services
 try:
     initialize_services()
@@ -179,19 +254,30 @@ async def process_documents_with_ai(documents: List[Dict[str, Any]], construct: 
     try:
         logger.info("🤖 Starting AI-powered document processing with vectorization...")
         
-        # Step 1: Vectorize transcripts for enhanced context
-        logger.info("🧠 Step 1: Vectorizing interview transcripts...")
-        vectorization_result = await vector_processor.vectorize_transcripts(documents)
-        
-        if vectorization_result.get('vectorized'):
-            logger.info(f"✅ Successfully vectorized {vectorization_result['total_chunks']} chunks")
-            vectorized_chunks = vectorization_result['chunks']
+        # Step 1: Conditionally vectorize transcripts for enhanced context
+        decision = _should_vectorize(documents)
+        logger.info(
+            "🧮 Vectorization decision: %s | metrics=%s",
+            'YES' if decision['should_vectorize'] else 'NO',
+            decision['metrics']
+        )
+
+        if decision['should_vectorize']:
+            logger.info("🧠 Step 1: Vectorizing interview transcripts (large input detected)...")
+            vectorization_result = await vector_processor.vectorize_transcripts(documents)
+            if vectorization_result.get('vectorized'):
+                logger.info(f"✅ Successfully vectorized {vectorization_result['total_chunks']} chunks")
+                vectorized_chunks = vectorization_result['chunks']
+            else:
+                logger.warning("⚠️ Vectorization failed, falling back to naive chunks from paragraphs")
+                vectorized_chunks = _build_naive_chunks_from_documents(documents)
         else:
-            logger.warning("⚠️ Vectorization failed, using original documents")
-            vectorized_chunks = documents
+            # Small inputs: skip expensive embedding call, but still build chunks for context
+            logger.info("⚡ Skipping vectorization for small input; building naive context chunks")
+            vectorized_chunks = _build_naive_chunks_from_documents(documents)
         
         # Step 2: Process documents to extract text and structure
-        processed_docs = document_processor.process_documents(documents, construct)
+        processed_docs = await document_processor.process_documents(documents)
         logger.info(f"📄 Processed {len(processed_docs)} documents")
         
         # Step 3: Extract user stories using AI with enhanced context
