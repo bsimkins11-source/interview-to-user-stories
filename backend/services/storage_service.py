@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
+import io
 
 class StorageService:
     def __init__(self):
@@ -24,6 +25,17 @@ class StorageService:
         )
         
         return url
+    
+    async def upload_file_to_job(self, job_id: str, file_content: io.IOBase, filename: str) -> str:
+        """Upload a single file to a job's upload folder"""
+        blob_name = f"uploads/{job_id}/{filename}"
+        blob = self.bucket.blob(blob_name)
+        
+        # Upload the file content
+        blob.upload_from_file(file_content)
+        
+        # Return the GCS URL
+        return f"gs://{self.bucket_name}/{blob_name}"
     
     async def generate_signed_download_url(self, job_id: str, expiration_hours: int = 24) -> str:
         """Generate signed URL for CSV download"""

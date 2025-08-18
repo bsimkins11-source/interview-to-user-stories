@@ -49,6 +49,14 @@ export function EditableUserStoriesTable({
   onStoriesChange, 
   onDownload 
 }: EditableUserStoriesTableProps) {
+  // Debug logging
+  console.log('🎯 EditableUserStoriesTable rendered with:', {
+    userStoriesLength: userStories?.length || 0,
+    userStories: userStories,
+    onStoriesChange: typeof onStoriesChange,
+    onDownload: typeof onDownload
+  });
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingStory, setEditingStory] = useState<UserStory | null>(null);
   const [searchTerm, setSearchTerm] = useState('');

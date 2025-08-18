@@ -280,6 +280,7 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
       setEditableStories(sampleUserStories);
     }
     
+    console.log('📝 Final editable stories count before mode change:', editableStories.length);
     setViewMode(mode);
   }, [viewMode, editableStories.length, jobStatus?.userStories, sampleUserStories, getSampleUserStories.length]);
 
@@ -772,6 +773,19 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
                 onStoriesChange={handleStoriesChange}
                 onDownload={handleDownloadEdited}
               />
+              
+              {/* Debug info for table data */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4 text-sm">
+                  <div className="font-medium text-red-900 mb-2">Table Data Debug:</div>
+                  <div className="text-xs text-red-700">
+                    <div>userStories prop length: {editableStories.length}</div>
+                    <div>userStories data: {JSON.stringify(editableStories.slice(0, 2), null, 2)}</div>
+                    <div>onStoriesChange function: {typeof handleStoriesChange}</div>
+                    <div>onDownload function: {typeof handleDownloadEdited}</div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

@@ -6,66 +6,30 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    env_file:
+      - ./config/local.env
     environment:
       - ENVIRONMENT=development
-      - CORS_ALLOW_ORIGINS=http://localhost:3000
-      - FIRESTORE_EMULATOR_HOST=firestore:8080
-      - STORAGE_EMULATOR_HOST=storage:4443
-      - PUBSUB_EMULATOR_HOST=pubsub:8085
     volumes:
       - ./backend:/app
       - ./shared:/app/shared
-    depends_on:
-      - firestore
-      - storage
-      - pubsub
+      - ./config:/app/config
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   # Local development worker
   worker:
     build: ./worker
+    env_file:
+      - ./config/local.env
     environment:
       - ENVIRONMENT=development
-      - FIRESTORE_EMULATOR_HOST=firestore:8080
-      - STORAGE_EMULATOR_HOST=storage:4443
-      - PUBSUB_EMULATOR_HOST=pubsub:8085
     volumes:
       - ./worker:/app
       - ./shared:/app/shared
-    depends_on:
-      - firestore
-      - storage
-      - pubsub
+      - ./config:/app/config
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
     command: python main.py
 
-  # Firestore emulator
-  firestore:
-    image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
-    ports:
-      - "8080:8080"
-    command: gcloud beta emulators firestore start --host-port=0.0.0.0:8080
-    volumes:
-      - firestore_data:/data
-
-  # Storage emulator
-  storage:
-    image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
-    ports:
-      - "4443:4443"
-    command: gcloud beta emulators storage start --host-port=0.0.0.0:4443
-    volumes:
-      - storage_data:/data
-
-  # Pub/Sub emulator
-  pubsub:
-    image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
-    ports:
-      - "8085:8085"
-    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
-    volumes:
-      - pubsub_data:/data
-
-volumes:
-  firestore_data:
-  storage_data:
-  pubsub_data:
+  # Note: This setup requires Google Cloud credentials to be configured
+  # Make sure to set GOOGLE_APPLICATION_CREDENTIALS environment variable
+  # and update config/local.env with your actual values

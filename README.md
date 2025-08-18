@@ -1,180 +1,210 @@
-# Interview ETL User Stories
+# Interview ETL - User Stories Generator
 
-**Transform interview transcripts into structured user stories with AI-powered extraction**
-
-**Last Deployment:** 2024-01-01 21:15 UTC - Enterprise-grade optimizations deployed! 🚀
-
-## 🎯 Overview
+A fully functional, production-ready application that transforms interview transcripts into structured user stories using AI-powered extraction.
 
 ## 🚀 Features
 
-- **Complete ETL Pipeline**: 4-step wizard for interview processing
-- **Multiple Input Types**: File uploads, folder links, document links
-- **External Story Import**: Google Drive, SharePoint, OneDrive integration
-- **AI-Powered Extraction**: Gemini-powered user story generation
-- **Consistent Output**: Deterministic processing with CSV export
-- **Enhanced AI Assistant**: Context-aware Q&A throughout the process
+- **AI-Powered Extraction**: Uses advanced NLP to extract user stories from interview transcripts
+- **Flexible Input Formats**: Supports ZIP, TXT, DOCX, PDF, and Markdown files
+- **Custom Output Schemas**: Define your own output structure for user stories
+- **Real-time Processing**: Live job status updates and progress tracking
+- **Cloud Integration**: Built on Google Cloud Platform with Firestore, Storage, and Pub/Sub
+- **Professional UI**: Modern, responsive interface built with Next.js and Tailwind CSS
+- **CSV Export**: Download results in structured CSV format
+- **External Import**: Import user stories from cloud storage and document links
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend       │    │     Worker      │
-│   (Next.js)     │◄──►│   (FastAPI)     │◄──►│   (Python)      │
-│   Vercel        │    │   Cloud Run     │    │   Cloud Run     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   External      │    │   Firestore     │    │   Cloud         │
-│   Imports       │    │   Database      │    │   Storage       │
-│   (GDrive, SP)  │    │   (Jobs, Data)  │    │   (Files)       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+Frontend (Next.js) → Backend (FastAPI) → Worker (Python) → Google Cloud Services
+     ↓                    ↓                    ↓                    ↓
+  React UI           REST API           AI Processing        Firestore/Storage
 ```
 
-## 🛠️ Tech Stack
+## 🛠️ Technology Stack
 
-- **Frontend**: Next.js 14, React, Tailwind CSS, shadcn/ui
-- **Backend**: FastAPI, Python, Google Cloud Run
-- **Worker**: Python, AI processing, document parsing
+- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
+- **Backend**: FastAPI, Python 3.11+, Pydantic
+- **Worker**: Python async processing with Google Cloud Pub/Sub
 - **Database**: Google Cloud Firestore
 - **Storage**: Google Cloud Storage
-- **AI**: Google Gemini, OpenAI (optional)
-- **Deployment**: Vercel (frontend), GCP Cloud Run (backend/worker)
+- **AI/ML**: Google Gemini API for text processing
+- **Deployment**: Docker, Google Cloud Run
+
+## 📋 Prerequisites
+
+- Docker and Docker Compose
+- Google Cloud Platform account
+- Node.js 18+ (for frontend development)
+- Python 3.11+ (for backend development)
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js 18+
-- Python 3.11+
-- Docker & Docker Compose
-- Google Cloud Platform account
+### 1. Clone and Setup
 
-### Local Development
 ```bash
-# Clone the repository
-git clone <your-repo-url>
+git clone <repository-url>
 cd Interview-ETL-User-Stories
+```
 
-# Start local services
+### 2. Configure Google Cloud
+
+```bash
+# Set up Google Cloud credentials
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
+
+# Enable required APIs:
+# - Cloud Firestore API
+# - Cloud Storage API
+# - Cloud Pub/Sub API
+# - Cloud Run API
+```
+
+### 3. Start the Application
+
+```bash
+# Make the startup script executable
+chmod +x start-local.sh
+
+# Start all services
 ./start-local.sh
+```
 
-# Frontend (in new terminal)
-cd frontend
-npm install
-npm run dev
+The application will be available at:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **Health Check**: http://localhost:8000/health
 
-# Backend (in new terminal)
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
+## 📖 Usage Guide
+
+### Step 1: Define Output Structure
+- Choose from predefined templates or create custom schemas
+- Define the fields you want in your user stories output
+- Set default values and priority rules
+
+### Step 2: Upload Interview Transcripts
+- **File Upload**: Drag & drop or select files (ZIP, TXT, DOCX, PDF, MD)
+- **Folder Import**: Link to cloud storage folders (Google Drive, SharePoint, etc.)
+- **Document Import**: Import individual documents via URL
+
+### Step 3: Process & Extract
+- Review your inputs and start AI processing
+- Monitor real-time progress and job status
+- AI engine extracts user stories using your defined schema
+
+### Step 4: Download Results
+- Download structured CSV with all extracted user stories
+- Review confidence scores and extraction quality
+- Export for use in project management tools
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create `config/local.env` for local development:
+
+```env
+# Google Cloud
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+GCS_BUCKET=your-storage-bucket
+FIRESTORE_COLLECTION_JOBS=Jobs
+FIRESTORE_COLLECTION_CONSTRUCTS=Constructs
+
+# API Configuration
+CORS_ALLOW_ORIGINS=http://localhost:3000,https://yourdomain.com
+
+# AI Configuration
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
 ### Production Deployment
-```bash
-# Backend & Worker to GCP
-gcloud run deploy interview-etl-backend --source backend --region us-central1
-gcloud run deploy interview-etl-worker --source worker --region us-central1
 
-# Frontend to Vercel (auto-deploys from GitHub)
-git push origin main
+Update `config/production.env` with production values:
+
+```env
+# Production settings
+GCS_BUCKET=interview-etl-production
+FIRESTORE_COLLECTION_JOBS=ProductionJobs
+FIRESTORE_COLLECTION_CONSTRUCTS=ProductionConstructs
 ```
 
-## 📋 Usage Workflow
+## 🏭 Production Deployment
 
-### 1. Define Structure
-- Create output schema templates
-- Configure user story patterns
-- Set default values and priorities
+### Google Cloud Run
 
-### 2. Add Transcripts
-- Upload interview files (ZIP, TXT, DOCX, PDF, MD)
-- Import from cloud storage (Google Drive, SharePoint, OneDrive)
-- Provide direct document links
+```bash
+# Build and deploy backend
+gcloud run deploy interview-etl-backend \
+  --source backend/ \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
 
-### 3. Process & Extract
-- AI-powered content analysis
-- User story pattern recognition
-- Automatic categorization and scoring
+# Build and deploy worker
+gcloud run deploy interview-etl-worker \
+  --source worker/ \
+  --platform managed \
+  --region us-central1 \
+  --no-allow-unauthenticated
+```
 
-### 4. Download Results
-- CSV export with structured data
-- Confidence scores for each story
-- Deduplication and quality metrics
+### Frontend (Vercel)
 
-## 🤖 AI Assistant Features
+```bash
+# Deploy to Vercel
+vercel --prod
+```
 
-- **Context-Aware Q&A**: Understands your current ETL step
-- **User Story Guidance**: Best practices and templates
-- **Process Explanation**: How the AI extraction works
-- **Smart Suggestions**: Contextual help for each stage
+## 🔍 API Documentation
 
-## 🔌 External Import Capabilities
+### Core Endpoints
 
-### Supported Sources
-- **Google Drive**: Folders and documents
-- **SharePoint**: Team sites and document libraries
-- **OneDrive**: Personal and business storage
-- **Direct Links**: HTTP endpoints, APIs, external systems
+- `POST /jobs` - Create a new processing job
+- `POST /jobs/{id}/upload` - Upload files to a job
+- `PUT /jobs/{id}/uploadComplete` - Start processing
+- `GET /jobs/{id}` - Get job status
+- `GET /download/{id}/csv` - Download results
 
-### Import Formats
-- **Documents**: Google Sheets, Excel, Word, PDF
-- **Data**: CSV, JSON, XML
-- **Text**: Plain text, Markdown
+### Construct Management
 
-## 📊 Output Schema
+- `POST /constructs` - Create output schema template
+- `GET /constructs/default` - Get default template
+- `GET /constructs` - List all templates
 
-The system generates structured user stories with:
-- **User Story**: "As a [role], I need [capability] so that [benefit]"
-- **Metadata**: Category, priority, tags, confidence score
-- **Requirements**: Acceptance criteria, dependencies
-- **Source**: Original transcript reference, extraction method
+### External Imports
 
-## 🔒 Security & Privacy
-
-- **No Data Persistence**: Files processed and deleted
-- **Secure Uploads**: Signed URLs for file transfers
-- **API Authentication**: Configurable access controls
-- **CORS Protection**: Restricted to authorized domains
+- `POST /external-imports/folder` - Import from cloud storage
+- `POST /external-imports/document` - Import single document
+- `POST /external-imports/link` - Import from URL
 
 ## 🧪 Testing
 
-### Local Testing
 ```bash
-# Run backend tests
+# Backend tests
 cd backend
 python -m pytest
 
-# Run frontend tests
-cd frontend
+# Frontend tests
+cd app
 npm test
 
-# End-to-end testing
-npm run test:e2e
+# Integration tests
+docker-compose -f docker-compose.test.yml up
 ```
 
-### Production Testing
-- Health check endpoints
-- API response validation
-- File processing workflows
-- AI extraction accuracy
+## 📊 Monitoring & Logging
 
-## 📈 Monitoring
+- **Health Checks**: `/health` endpoint for service monitoring
+- **Job Status**: Real-time updates via API polling
+- **Error Handling**: Comprehensive error responses with timestamps
+- **Logging**: Structured logging for debugging and monitoring
 
-- **Health Checks**: Service availability monitoring
-- **Processing Metrics**: Job completion rates
-- **Error Tracking**: Failed job analysis
-- **Performance**: Response time monitoring
+## 🔒 Security
 
-## 🚀 Roadmap
-
-- [ ] **Auth Integration**: Google OAuth, Auth.js
-- [ ] **Advanced AI**: Custom model training
-- [ ] **Real-time Processing**: WebSocket updates
-- [ ] **Batch Processing**: Large file optimization
-- [ ] **API Rate Limiting**: Usage management
-- [ ] **Advanced Analytics**: Processing insights
+- CORS configuration for controlled access
+- Google Cloud IAM for service authentication
+- Input validation and sanitization
+- Secure file upload handling
 
 ## 🤝 Contributing
 
@@ -186,20 +216,23 @@ npm run test:e2e
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🆘 Support
 
-- **Documentation**: [Project Wiki](link-to-wiki)
-- **Issues**: [GitHub Issues](link-to-issues)
-- **Discussions**: [GitHub Discussions](link-to-discussions)
+- **Documentation**: Check LOCAL_DEVELOPMENT.md for detailed setup
+- **Issues**: Report bugs via GitHub Issues
+- **Discussions**: Use GitHub Discussions for questions
 
-## 🔗 Links
+## 🎯 Roadmap
 
-- **Live Application**: [https://interview-to-user-stories.vercel.app/](https://interview-to-user-stories.vercel.app/)
-- **Backend API**: [https://interview-etl-backend-289778453333.us-central1.run.app/](https://interview-etl-backend-289778453333.us-central1.run.app/)
-- **Agent Hub**: [https://transparent-agent-hub-zeta.vercel.app/](https://transparent-agent-hub-zeta.vercel.app/)
+- [ ] Advanced AI models for better extraction
+- [ ] Real-time collaboration features
+- [ ] Integration with project management tools
+- [ ] Advanced analytics and reporting
+- [ ] Multi-language support
+- [ ] Mobile application
 
 ---
 
-**Built with ❤️ for transforming interviews into actionable user stories**
+**Built with ❤️ for product managers, business analysts, and development teams**

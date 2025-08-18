@@ -19,6 +19,7 @@ interface TranscriptInput {
   status: 'pending' | 'uploading' | 'completed' | 'error';
   size?: number;
   file_count?: number;
+  file?: File; // Add actual file reference
 }
 
 interface InterviewTranscriptInputProps {
@@ -56,7 +57,8 @@ export default function InterviewTranscriptInput({
       name: file.name,
       source: file.name,
       status: 'pending',
-      size: file.size
+      size: file.size,
+      file: file // Store the actual file reference
     }));
 
     setTranscripts(prev => [...prev, ...newTranscripts]);

@@ -18,14 +18,18 @@ class DocumentProcessor:
         
         for doc in documents:
             try:
-                processed_text = await self._process_single_document(doc)
-                if processed_text:
+                # The content is already extracted as text from the storage service
+                content = doc.get('content', '')
+                file_type = doc.get('file_type', 'txt')
+                
+                if content:
                     processed_docs.append({
                         'filename': doc['filename'],
-                        'file_type': doc['file_type'],
-                        'processed_text': processed_text,
-                        'paragraphs': self._extract_paragraphs(processed_text),
-                        'speaker_labels': self._extract_speaker_labels(processed_text)
+                        'file_type': file_type,
+                        'content': content,
+                        'paragraphs': self._extract_paragraphs(content),
+                        'speaker_labels': self._extract_speaker_labels(content),
+                        'workflow_analysis': self._identify_workflow_content(content)
                     })
             except Exception as e:
                 print(f"Error processing {doc['filename']}: {str(e)}")

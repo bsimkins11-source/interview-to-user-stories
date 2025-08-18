@@ -1,6 +1,7 @@
 import re
 import json
 import hashlib
+import os
 from typing import List, Dict, Any, Optional
 from google.generativeai import GenerativeModel
 import openai
@@ -15,9 +16,29 @@ class ExtractionEngine:
         
         # Initialize AI models with deterministic settings
         if llm_provider == "gemini":
-            self.gemini_model = GenerativeModel('gemini-pro')
+            api_key = os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                print("Warning: GEMINI_API_KEY not set. AI extraction will fall back to pattern matching.")
+                self.gemini_model = None
+            else:
+                try:
+                    self.gemini_model = GenerativeModel('gemini-pro')
+                    print("Gemini model initialized successfully")
+                except Exception as e:
+                    print(f"Error initializing Gemini model: {str(e)}")
+                    self.gemini_model = None
         elif llm_provider == "openai":
-            self.openai_client = openai.OpenAI()
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                print("Warning: OPENAI_API_KEY not set. AI extraction will fall back to pattern matching.")
+                self.openai_client = None
+            else:
+                try:
+                    self.openai_client = openai.OpenAI(api_key=api_key)
+                    print("OpenAI client initialized successfully")
+                except Exception as e:
+                    print(f"Error initializing OpenAI client: {str(e)}")
+                    self.openai_client = None
         
         # Workflow management specific patterns
         self.workflow_patterns = [
@@ -127,6 +148,10 @@ class ExtractionEngine:
     
     async def _extract_with_gemini(self, text: str, doc: Dict[str, Any], paragraph_index: int) -> Optional[Dict[str, Any]]:
         """Extract user story using Gemini AI with deterministic settings"""
+        if not self.gemini_model:
+            print("Gemini model not available, falling back to pattern matching")
+            return self._extract_with_patterns(text, doc, paragraph_index)
+            
         prompt = self._build_extraction_prompt(text)
         
         try:
@@ -144,6 +169,8 @@ class ExtractionEngine:
                 return self._parse_ai_response(response.text, doc, paragraph_index)
         except Exception as e:
             print(f"Gemini extraction failed: {str(e)}")
+            # Fall back to pattern-based extraction
+            return self._extract_with_patterns(text, doc, paragraph_index)
         
         return None
     

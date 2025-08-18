@@ -10,18 +10,20 @@ class JobStatus(str, Enum):
     FAILED = "FAILED"
 
 class JobCreate(BaseModel):
-    name: str = Field(..., description="Job name")
+    name: Optional[str] = Field(None, description="Job name")
     description: Optional[str] = Field(None, description="Job description")
-    construct_id: Optional[str] = Field(None, description="Construct template ID")
-    custom_construct: Optional[Dict[str, Any]] = Field(None, description="Custom construct data")
+    construct: Dict[str, Any] = Field(..., description="Construct template data")
+    transcripts: List[Dict[str, Any]] = Field(..., description="Transcript information")
+    status: str = Field(default="CREATED", description="Job status")
 
 class JobResponse(BaseModel):
     id: str
     name: str
     description: Optional[str]
     status: JobStatus
-    construct_id: Optional[str]
-    custom_construct: Optional[Dict[str, Any]]
+    construct: Dict[str, Any]
+    transcripts: List[Dict[str, Any]]
+    files: List[Dict[str, Any]] = Field(default_factory=list)
     upload_url: Optional[str]
     csv_url: Optional[str]
     created_at: datetime

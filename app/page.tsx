@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import ExternalStoryImporter from '@/components/ExternalStoryImporter';
 import { JobStatus } from '@/components/JobStatus';
 import { ResultsDownload } from '@/components/ResultsDownload';
 import { GeminiAssistant } from '@/components/GeminiAssistant';
+import { createJob, startProcessing, getJobStatus, createConstruct, uploadFilesToJob } from '@/lib/api';
 
 type Step = 'construct' | 'upload' | 'process' | 'download';
 
@@ -32,6 +33,7 @@ interface TranscriptInput {
   status: 'pending' | 'uploading' | 'completed' | 'error';
   size?: number;
   file_count?: number;
+  file?: File; // Add actual file reference
 }
 
 interface ExternalStory {
@@ -53,6 +55,7 @@ export default function HomePage() {
   const [externalStories, setExternalStories] = useState<ExternalStory[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>('idle');
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   const steps = [
@@ -97,12 +100,23 @@ export default function HomePage() {
     }
   };
 
-  const handleConstructSave = (newConstruct: Construct) => {
-    setConstruct(newConstruct);
-    toast({
-      title: "Construct saved!",
-      description: `Your output structure "${newConstruct.name}" has been defined with ${newConstruct.output_schema.length} fields.`,
-    });
+  const handleConstructSave = async (newConstruct: Construct) => {
+    try {
+      // Save construct to backend
+      const savedConstruct = await createConstruct(newConstruct);
+      setConstruct(newConstruct);
+      
+      toast({
+        title: "Construct saved!",
+        description: `Your output structure "${newConstruct.name}" has been defined with ${newConstruct.output_schema.length} fields.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error saving construct",
+        description: error instanceof Error ? error.message : "Failed to save construct",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleTranscriptsAdded = (newTranscripts: TranscriptInput[]) => {
@@ -139,19 +153,83 @@ export default function HomePage() {
       return;
     }
 
-    setJobStatus('processing');
-    setJobId('demo-job-123'); // Demo job ID for now
-    
-    // Simulate processing
-    setTimeout(() => {
-      setJobStatus('completed');
-      setCurrentStep('download');
-    }, 3000);
+    try {
+      setIsProcessing(true);
+      setJobStatus('processing');
 
-    toast({
-      title: "Processing started!",
-      description: "Your interview transcripts are being processed by AI.",
-    });
+      // Create job in backend
+      const jobResponse = await createJob(construct, transcripts);
+      const newJobId = jobResponse.id;
+      setJobId(newJobId);
+
+      // Upload files if there are file transcripts
+      const fileTranscripts = transcripts.filter(t => t.type === 'file' && t.file);
+      if (fileTranscripts.length > 0) {
+        const files = fileTranscripts.map(t => t.file!).filter(Boolean);
+        try {
+          await uploadFilesToJob(newJobId, files);
+        } catch (uploadError) {
+          console.error('File upload failed:', uploadError);
+          toast({
+            title: "File upload failed",
+            description: "Some files failed to upload. Please try again.",
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          setJobStatus('idle');
+          return;
+        }
+      }
+
+      // Start processing
+      await startProcessing(newJobId);
+      
+      // Poll for job status
+      const pollStatus = async () => {
+        try {
+          const statusResponse = await getJobStatus(newJobId);
+          setJobStatus(statusResponse.status);
+          
+          if (statusResponse.status === 'COMPLETED') {
+            setCurrentStep('download');
+            setIsProcessing(false);
+            toast({
+              title: "Processing completed!",
+              description: "Your user stories are ready for download.",
+            });
+          } else if (statusResponse.status === 'FAILED') {
+            setIsProcessing(false);
+            toast({
+              title: "Processing failed",
+              description: statusResponse.error || "An error occurred during processing",
+              variant: "destructive",
+            });
+          } else if (statusResponse.status === 'PROCESSING') {
+            // Continue polling
+            setTimeout(pollStatus, 5000);
+          }
+        } catch (error) {
+          console.error('Error polling job status:', error);
+          setIsProcessing(false);
+        }
+      };
+
+      // Start polling
+      setTimeout(pollStatus, 2000);
+
+      toast({
+        title: "Processing started!",
+        description: "Your interview transcripts are being processed by AI.",
+      });
+    } catch (error) {
+      setIsProcessing(false);
+      setJobStatus('idle');
+      toast({
+        title: "Error starting processing",
+        description: error instanceof Error ? error.message : "Failed to start processing",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStepContent = () => {
@@ -234,10 +312,19 @@ export default function HomePage() {
               />
             ) : (
               <div className="text-center">
-                <Button onClick={handleStartProcessing} size="lg">
+                <Button 
+                  onClick={handleStartProcessing} 
+                  size="lg"
+                  disabled={isProcessing}
+                >
                   <Play className="mr-2 h-4 w-4" />
-                  Start Processing
+                  {isProcessing ? 'Processing...' : 'Start Processing'}
                 </Button>
+                {isProcessing && (
+                  <div className="mt-4 text-sm text-muted-foreground">
+                    Creating job and starting AI processing...
+                  </div>
+                )}
               </div>
             )}
           </div>

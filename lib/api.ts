@@ -15,7 +15,8 @@ export const api = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
 
     return await response.json();
@@ -25,7 +26,99 @@ export const api = async (endpoint: string, options: RequestInit = {}) => {
   }
 };
 
-// Upload ZIP file to backend
+// Create a new job and get upload URL
+export const createJob = async (construct: any, transcripts: any[]) => {
+  try {
+    const response = await api('/jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        construct: construct,
+        transcripts: transcripts,
+        status: 'CREATED'
+      })
+    });
+    return response;
+  } catch (error) {
+    console.error('Job creation failed:', error);
+    throw error;
+  }
+};
+
+// Upload files to the job
+export const uploadFilesToJob = async (jobId: string, files: File[]) => {
+  try {
+    const formData = new FormData();
+    files.forEach((file, index) => {
+      formData.append(`files`, file); // Use 'files' as the key for multiple files
+    });
+
+    const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Upload failed: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('File upload failed:', error);
+    throw error;
+  }
+};
+
+// Mark upload as complete and start processing
+export const startProcessing = async (jobId: string) => {
+  try {
+    const response = await api(`/jobs/${jobId}/uploadComplete`, {
+      method: 'PUT'
+    });
+    return response;
+  } catch (error) {
+    console.error('Processing start failed:', error);
+    throw error;
+  }
+};
+
+// Get job status
+export const getJobStatus = async (jobId: string) => {
+  try {
+    const response = await api(`/jobs/${jobId}`);
+    return response;
+  } catch (error) {
+    console.error('Job status fetch failed:', error);
+    throw error;
+  }
+};
+
+// Create construct template
+export const createConstruct = async (construct: any) => {
+  try {
+    const response = await api('/constructs', {
+      method: 'POST',
+      body: JSON.stringify(construct)
+    });
+    return response;
+  } catch (error) {
+    console.error('Construct creation failed:', error);
+    throw error;
+  }
+};
+
+// Get default construct
+export const getDefaultConstruct = async () => {
+  try {
+    const response = await api('/constructs/default');
+    return response;
+  } catch (error) {
+    console.error('Default construct fetch failed:', error);
+    throw error;
+  }
+};
+
+// Upload ZIP file to backend (legacy function - keeping for compatibility)
 export const uploadZip = async (file: File, construct: any) => {
   const formData = new FormData();
   formData.append('file', file);

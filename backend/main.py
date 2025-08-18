@@ -7,6 +7,7 @@ import json
 import os
 from google.cloud import storage
 from google.cloud import firestore
+from datetime import datetime
 
 from models import JobCreate, JobResponse, ConstructCreate, ConstructResponse
 from services.job_service import JobService
@@ -20,10 +21,10 @@ app = FastAPI(title="Interview ETL API", version="1.0.0")
 origins = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["*"],
+    allow_origins=origins or ["http://localhost:3000", "https://interview-etl-frontend.vercel.app"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 # Initialize services
@@ -38,24 +39,115 @@ firestore_client = firestore.Client()
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "service": "interview-etl-api"}
+    try:
+        # Check if services are accessible
+        firestore_client = firestore.Client()
+        storage_client = storage.Client()
+        
+        return {
+            "status": "healthy", 
+            "service": "interview-etl-api",
+            "timestamp": datetime.utcnow().isoformat(),
+            "services": {
+                "firestore": "connected",
+                "storage": "connected"
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "service": "interview-etl-api", 
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler for better error responses"""
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "error": str(exc),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    )
 
 @app.post("/jobs", response_model=JobResponse)
 async def create_job(job: JobCreate):
-    """Create a new job and return signed upload URL"""
+    """Create a new job and return job details"""
     try:
         # Create job in Firestore
         job_id = await job_service.create_job(job)
         
-        # Generate signed upload URL
-        upload_url = await storage_service.generate_signed_upload_url(job_id)
+        # Get the created job
+        created_job = await job_service.get_job(job_id)
         
-        return JobResponse(
-            id=job_id,
-            status="CREATED",
-            upload_url=upload_url,
-            message="Job created successfully. Use the upload URL to upload your files."
-        )
+        return {
+            "id": job_id,
+            "name": created_job.get('name', ''),
+            "description": created_job.get('description', ''),
+            "status": created_job.get('status', 'CREATED'),
+            "construct": created_job.get('construct', {}),
+            "transcripts": created_job.get('transcripts', []),
+            "files": created_job.get('files', []),
+            "upload_url": None,  # Not needed for this flow
+            "csv_url": None,
+            "created_at": created_job.get('created_at'),
+            "updated_at": created_job.get('updated_at'),
+            "completed_at": None,
+            "error_message": None,
+            "metrics": None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/jobs/{job_id}/upload")
+async def upload_files_to_job(
+    job_id: str,
+    files: List[UploadFile] = File(...)
+):
+    """Upload files to a specific job"""
+    try:
+        # Verify job exists
+        job = await job_service.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        if job.get('status') != 'CREATED':
+            raise HTTPException(status_code=400, detail="Job is not in CREATED state")
+        
+        # Upload files to Cloud Storage
+        uploaded_files = []
+        for file in files:
+            if file.filename:
+                # Generate unique filename
+                file_extension = os.path.splitext(file.filename)[1]
+                unique_filename = f"{job_id}_{len(uploaded_files)}{file_extension}"
+                
+                # Upload to Cloud Storage
+                file_url = await storage_service.upload_file_to_job(
+                    job_id, 
+                    file.file, 
+                    unique_filename
+                )
+                
+                uploaded_files.append({
+                    'original_name': file.filename,
+                    'stored_name': unique_filename,
+                    'url': file_url,
+                    'size': file.size
+                })
+        
+        # Update job with file information
+        await job_service.add_files_to_job(job_id, uploaded_files)
+        
+        return {
+            "message": f"Successfully uploaded {len(uploaded_files)} files",
+            "job_id": job_id,
+            "files": uploaded_files
+        }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -98,14 +190,21 @@ async def create_construct(construct: ConstructCreate):
     """Create a new construct template"""
     try:
         construct_id = await construct_service.create_construct(construct)
-        return ConstructResponse(
-            id=construct_id,
-            name=construct.name,
-            output_schema=construct.output_schema,
-            pattern=construct.pattern,
-            defaults=construct.defaults,
-            message="Construct created successfully"
-        )
+        
+        # Get the created construct
+        created_construct = await construct_service.get_construct(construct_id)
+        
+        return {
+            "id": construct_id,
+            "name": created_construct.get('name', ''),
+            "description": created_construct.get('description', ''),
+            "output_schema": created_construct.get('output_schema', []),
+            "pattern": created_construct.get('pattern', ''),
+            "defaults": created_construct.get('defaults', {}),
+            "priority_rules": created_construct.get('priority_rules', []),
+            "created_at": created_construct.get('created_at'),
+            "updated_at": created_construct.get('updated_at')
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
