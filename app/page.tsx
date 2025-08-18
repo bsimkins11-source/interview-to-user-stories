@@ -132,6 +132,16 @@ export default function HomePage() {
       console.log('Can proceed to next:', canProceedToNext());
       console.log('Current construct state:', construct);
       
+      // Force navigation to next step after a short delay
+      setTimeout(() => {
+        if (canProceedToNext()) {
+          console.log('Auto-advancing to next step...');
+          handleNext();
+        } else {
+          console.log('Cannot auto-advance, manual navigation required');
+        }
+      }, 500);
+      
     } catch (error) {
       console.error('Error saving construct:', error);
       toast({
@@ -267,6 +277,32 @@ export default function HomePage() {
               </p>
             </div>
             <ConstructEditor onSave={handleConstructSave} />
+            
+            {/* Show success message and continue button when construct is saved */}
+            {construct && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">
+                  Output Structure Saved Successfully!
+                </h3>
+                <p className="text-green-700 mb-4">
+                  Your construct "{construct.name}" has been defined with {construct.output_schema.length} fields.
+                </p>
+                <Button 
+                  onClick={handleNext}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Continue to Upload Transcripts
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         );
 
@@ -533,7 +569,10 @@ export default function HomePage() {
           <div className="flex justify-between mt-8">
             <Button
               variant="outline"
-              onClick={handleBack}
+              onClick={() => {
+                console.log('Back button clicked');
+                handleBack();
+              }}
               disabled={!canGoBack()}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -541,13 +580,34 @@ export default function HomePage() {
             </Button>
             
             <Button
-              onClick={handleNext}
+              onClick={() => {
+                console.log('Next button clicked');
+                console.log('Current state:', { currentStep, construct: !!construct, canProceed: canProceedToNext() });
+                handleNext();
+              }}
               disabled={!canProceedToNext()}
             >
               Next
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
+          
+          {/* Debug Info Panel */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium">Debug Info</summary>
+                <div className="mt-2 space-y-1 text-xs">
+                  <div>Current Step: {currentStep}</div>
+                  <div>Has Construct: {construct ? 'Yes' : 'No'}</div>
+                  <div>Construct Name: {construct?.name || 'None'}</div>
+                  <div>Can Go Back: {canGoBack() ? 'Yes' : 'No'}</div>
+                  <div>Can Proceed: {canProceedToNext() ? 'Yes' : 'No'}</div>
+                  <div>Transcripts Count: {transcripts.length}</div>
+                </div>
+              </details>
+            </div>
+          )}
         </div>
 
         {/* AI Assistant */}
