@@ -5,6 +5,7 @@ import os
 from typing import List, Dict, Any, Optional
 from google.generativeai import GenerativeModel
 import openai
+import google.generativeai as genai
 
 class ExtractionEngine:
     """AI-powered extraction engine for user stories and requirements"""
@@ -166,110 +167,69 @@ PRIORITY RULES: {'; '.join(priority_rules)}
             print(f"Error in AI extraction: {str(e)}")
             return self._extract_with_patterns(text, doc, paragraph_index)
 
-    def _preprocess_text_for_analysis(self, text: str) -> str:
-        """Preprocess text to improve AI analysis quality"""
-        # Clean and structure the text for better AI understanding
-        text = text.strip()
-        
-        # Add context markers for better analysis
-        if 'interview' in text.lower() or ':' in text:
-            # This looks like interview content, add context
-            text = f"INTERVIEW CONTENT: {text}"
-        
-        # Highlight key phrases that indicate user stories
-        key_indicators = ['need', 'want', 'should', 'must', 'require', 'problem', 'issue', 'difficulty']
-        for indicator in key_indicators:
-            if indicator in text.lower():
-                text = f"{text}\n[KEY INDICATOR: {indicator.upper()}]"
-        
-        return text
-    
-    async def _extract_with_gemini(self, text: str, doc: Dict[str, Any], paragraph_index: int) -> Optional[Dict[str, Any]]:
-        """Extract user story using Gemini AI with enhanced analysis and logging"""
+    async def extract_story_from_text_with_context(self, text: str, doc: Dict[str, Any], paragraph_index: int, context_chunks: List[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """Extract user story using Gemini AI with enhanced context from vectorized chunks"""
         if not self.gemini_model:
             print("Gemini model not available, falling back to pattern matching")
             return self._extract_with_patterns(text, doc, paragraph_index)
             
-        prompt = self._build_extraction_prompt(text)
+        prompt = self._build_extraction_prompt_with_context(text, doc, paragraph_index, context_chunks)
         
         # Log the analysis process
-        print(f"\n🤖 GEMINI ANALYSIS STARTED")
+        print(f"\n🤖 GEMINI ANALYSIS WITH CONTEXT STARTED")
         print(f"📄 Document: {doc.get('filename', 'Unknown')}")
         print(f"📝 Paragraph: {paragraph_index + 1}")
         print(f"📊 Text Length: {len(text)} characters")
-        print(f"🔍 Text Preview: {text[:200]}...")
-        print(f"📋 Construct: {self.construct.get('name', 'Default') if self.construct else 'None'}")
+        print(f"🔍 Context Chunks: {len(context_chunks) if context_chunks else 0}")
+        print(f"📊 Text Preview: {text[:100]}...")
         
         try:
-            print(f"🚀 Sending to Gemini API...")
-            
-            # Use deterministic generation parameters
-            response = self.gemini_model.generate_content(
+            # Generate content using Gemini with enhanced configuration
+            response = await self.gemini_model.generate_content_async(
                 prompt,
-                generation_config={
-                    'temperature': 0.1,  # Low temperature for consistency
-                    'top_p': 0.8,
-                    'top_k': 40,
-                    'max_output_tokens': 1000,
-                }
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.3,  # Lower temperature for more consistent output
+                    top_p=0.8,
+                    top_k=40,
+                    max_output_tokens=2048,
+                )
             )
             
-            if response.text:
-                print(f"✅ Gemini Response Received")
-                print(f"📄 Response Length: {len(response.text)} characters")
-                print(f"🔍 Response Preview: {response.text[:300]}...")
-                
-                # Parse the response
-                parsed_story = self._parse_ai_response(response.text, doc, paragraph_index)
-                
-                if parsed_story:
-                    print(f"🎯 User Story Extracted Successfully!")
-                    print(f"   - Role: {parsed_story.get('role', 'N/A')}")
-                    print(f"   - Category: {parsed_story.get('category', 'N/A')}")
-                    print(f"   - Priority: {parsed_story.get('priority', 'N/A')}")
-                else:
-                    print(f"⚠️  Failed to parse Gemini response")
-                
-                return parsed_story
+            response_text = response.text
+            print(f"💡 Gemini generated response: {response_text[:200]}...")
+            
+            # Parse the response into structured user story
+            story = self._extract_story_from_text(response_text, doc, paragraph_index)
+            
+            if story:
+                print(f"✅ Successfully extracted story with context")
+                print(f"📋 Story details: {story.get('User Story', 'Unknown')[:50]}...")
             else:
-                print(f"❌ Gemini returned empty response")
-                return None
+                print(f"⚠️ Failed to parse story from Gemini response")
                 
+            return story
+            
         except Exception as e:
-            print(f"💥 Gemini extraction failed: {str(e)}")
-            # Fall back to pattern-based extraction
+            print(f"❌ Error in Gemini AI extraction with context: {str(e)}")
+            print(f"🔄 Falling back to pattern matching...")
             return self._extract_with_patterns(text, doc, paragraph_index)
     
-    async def _extract_with_openai(self, text: str, doc: Dict[str, Any], paragraph_index: int) -> Optional[Dict[str, Any]]:
-        """Extract user story using OpenAI with deterministic settings"""
-        prompt = self._build_extraction_prompt(text)
-        
-        try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are an expert at extracting user stories from interview transcripts. Always provide consistent, structured output."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,  # Low temperature for consistency
-                max_tokens=1000,
-                top_p=0.8,
-                frequency_penalty=0.0,
-                presence_penalty=0.0
-            )
-            
-            if response.choices and response.choices[0].message.content:
-                return self._parse_ai_response(response.choices[0].message.content, doc, paragraph_index)
-        except Exception as e:
-            print(f"OpenAI extraction failed: {str(e)}")
-        
-        return None
-    
-    def _build_extraction_prompt(self, text: str) -> str:
-        """Build the AI extraction prompt with deterministic instructions and examples"""
+    def _build_extraction_prompt_with_context(self, text: str, doc: Dict[str, Any], paragraph_index: int, context_chunks: List[Dict[str, Any]] = None) -> str:
+        """Build the AI extraction prompt with enhanced context from vectorized chunks"""
         
         # Get construct-specific guidance
         construct_guidance = self._get_construct_guidance()
+        
+        # Build context information
+        context_info = ""
+        if context_chunks:
+            context_info = "\n\nRELEVANT CONTEXT FROM INTERVIEWS:\n"
+            for i, chunk in enumerate(context_chunks):
+                chunk_metadata = chunk.get('metadata', {})
+                filename = chunk_metadata.get('filename', 'Unknown')
+                context_info += f"\nCONTEXT CHUNK {i+1} (from {filename}):\n{chunk['text']}\n"
+            
+            context_info += "\nUse this context to provide more accurate and detailed extraction. Consider the relationships between different parts of the interviews and how they inform the user story."
         
         return f"""
 You are an expert business analyst specializing in extracting user stories from interview transcripts. Your task is to analyze the provided text and identify clear, actionable user stories.
@@ -277,85 +237,56 @@ You are an expert business analyst specializing in extracting user stories from 
 ANALYZE THIS TEXT CAREFULLY:
 "{text}"
 
+{context_info}
+
 EXTRACTION GUIDELINES:
 
 1. **ROLE IDENTIFICATION**: Look for who is speaking or who needs the capability
-   - Examples: "workflow manager", "content creator", "system administrator", "team member"
-   - If no specific role mentioned, infer from context or use "User"
+   - Examples: "workflow manager", "content creator", "system administrator"
+   - Extract stakeholder names and roles when mentioned
 
-2. **CAPABILITY EXTRACTION**: Identify what the person needs to do
-   - Look for action words: "need", "want", "should", "must", "require"
-   - Focus on specific, actionable capabilities
-   - Examples: "approve documents", "upload assets", "receive notifications"
+2. **CAPABILITY NEEDS**: Identify what the person wants to accomplish
+   - Look for phrases like "I need to", "I want to", "I should be able to"
+   - Focus on business capabilities, not just technical features
 
-3. **BENEFIT IDENTIFICATION**: Understand why this capability is needed
+3. **BUSINESS VALUE**: Understand why this capability is important
    - Look for phrases like "so that", "in order to", "because"
-   - Focus on business value and outcomes
-   - Examples: "ensure quality control", "improve efficiency", "maintain compliance"
+   - Identify efficiency gains, cost savings, compliance needs, etc.
 
-4. **CATEGORIZATION**: Classify into one of these categories:
-   - **workflow**: Process management, approvals, routing, notifications, automation
-   - **dam**: Digital asset management, metadata, version control, access control
-   - **integration**: System connections, data sharing, API requirements
-   - **security**: Authentication, permissions, compliance, audit trails
+4. **CATEGORIZATION**: Classify the user story appropriately
+   - Workflow: Process improvements, approvals, notifications
+   - DAM: Digital asset management, content organization
+   - Integration: System connections, data flows, APIs
+   - Security: Access control, authentication, compliance
 
-5. **PRIORITY ASSIGNMENT**:
-   - **High**: Security, compliance, critical business functions, revenue impact
-   - **Medium**: User experience, efficiency improvements, operational needs
-   - **Low**: Nice-to-have features, optimizations, future enhancements
+5. **PRIORITY ASSESSMENT**: Determine business priority
+   - HIGH: Critical business functions, security, compliance, revenue impact
+   - MEDIUM: Important operational features, user experience improvements
+   - LOW: Nice-to-have features, minor improvements, future enhancements
 
-EXAMPLES OF GOOD USER STORIES:
-
-**Workflow Example:**
-Input: "We need a better approval process for document submissions. Right now, everything gets stuck in email threads and we lose track of what's been approved and what hasn't."
-Output: {{
-    "role": "workflow manager",
-    "capability": "manage centralized approval process for document submissions",
-    "benefit": "track approval status and maintain audit trails",
-    "category": "workflow",
-    "priority": "high",
-    "source_text": "We need a better approval process for document submissions. Right now, everything gets stuck in email threads and we lose track of what's been approved and what hasn't.",
-    "requirements": ["centralized approval system", "status tracking", "audit trail"],
-    "acceptance_criteria": ["System shows all pending approvals", "Clear status indicators", "Complete approval history"]
-}}
-
-**DAM Example:**
-Input: "We also handle a lot of marketing materials, product images, and documentation. We need a way to organize these assets with proper metadata, version control, and access permissions."
-Output: {{
-    "role": "content manager",
-    "capability": "organize digital assets with metadata, version control, and access permissions",
-    "benefit": "efficiently manage and find marketing materials and product images",
-    "category": "dam",
-    "priority": "medium",
-    "source_text": "We also handle a lot of marketing materials, product images, and documentation. We need a way to organize these assets with proper metadata, version control, and access permissions.",
-    "requirements": ["metadata management", "version control", "access permissions", "asset organization"],
-    "acceptance_criteria": ["Assets can be tagged with metadata", "Version history is maintained", "Access control is enforced"]
-}}
-
-**Integration Example:**
-Input: "The workflow should automatically route documents to the right people, send reminders when approvals are overdue, and maintain an audit trail of who approved what and when."
-Output: {{
-    "role": "system administrator",
-    "capability": "automate document routing, reminders, and audit trail maintenance",
-    "benefit": "ensure timely approvals and maintain compliance records",
-    "category": "workflow",
-    "priority": "high",
-    "source_text": "The workflow should automatically route documents to the right people, send reminders when approvals are overdue, and maintain an audit trail of who approved what and when.",
-    "requirements": ["automatic routing", "reminder system", "audit trail", "compliance tracking"],
-    "acceptance_criteria": ["Documents route automatically", "Overdue reminders are sent", "Complete audit trail exists"]
-}}
-
-CONSTRUCT-SPECIFIC GUIDANCE:
 {construct_guidance}
 
-OUTPUT REQUIREMENTS:
-- Return ONLY valid JSON in the exact format shown above
-- If no clear user story can be extracted, return null
-- Be specific and actionable in your responses
-- Use consistent terminology and categorization
-- Focus on business value and user needs
+OUTPUT FORMAT:
+Generate exactly ONE user story per text segment. Use this exact format:
 
-ANALYZE THE TEXT AND EXTRACT THE USER STORY:
+User Story: [Complete user story in "As a [role], I need [capability] so that [business value]" format]
+Capability: [Specific capability or feature needed]
+Category: [Workflow/DAM/Integration/Security/Other]
+Priority: [HIGH/MEDIUM/LOW]
+Snippet: [Key quote or phrase from the text that supports this story]
+Team: [Team or department mentioned, if any]
+Stakeholder: [Specific person mentioned, if any]
+
+EXAMPLE:
+User Story: As a workflow manager, I need to approve document submissions so that I can ensure quality control and compliance.
+Capability: Document approval workflow
+Category: Workflow
+Priority: HIGH
+Snippet: "I need to approve all submissions before they go live"
+Team: Operations
+Stakeholder: Sarah Johnson
+
+Analyze the text thoroughly and extract the most relevant user story. If no clear user story is present, return null.
 """
     
     def _parse_ai_response(self, ai_response: str, doc: Dict[str, Any], paragraph_index: int) -> Optional[Dict[str, Any]]:

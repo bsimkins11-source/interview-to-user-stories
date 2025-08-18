@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from processors.document_processor import DocumentProcessor
 from processors.extraction_engine import ExtractionEngine
 from processors.requirements_converter import RequirementsConverter
+from processors.vector_processor import VectorProcessor
 from flask import Flask, request, jsonify
 import threading
 
@@ -32,11 +33,15 @@ extraction_engine = ExtractionEngine(
 requirements_converter = RequirementsConverter(
     gemini_api_key=os.getenv('GEMINI_API_KEY')
 )
+vector_processor = VectorProcessor(
+    project_id=os.getenv('GOOGLE_CLOUD_PROJECT', 'interview-to-user-stories')
+)
 
 print("🚀 Interview ETL Worker initialized with AI processing pipeline!")
 print(f"📊 Document Processor: {'✅ Ready' if document_processor else '❌ Not ready'}")
 print(f"🤖 Extraction Engine: {'✅ Ready' if extraction_engine else '❌ Not ready'}")
 print(f"📋 Requirements Converter: {'✅ Ready' if requirements_converter else '❌ Not ready'}")
+print(f"🧠 Vector Processor: {'✅ Ready' if vector_processor else '❌ Not ready'}")
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -47,7 +52,8 @@ def health_check():
         'services': {
             'document_processor': document_processor is not None,
             'extraction_engine': extraction_engine is not None,
-            'requirements_converter': requirements_converter is not None
+            'requirements_converter': requirements_converter is not None,
+            'vector_processor': vector_processor is not None
         }
     })
 
@@ -101,15 +107,26 @@ def download_and_extract(job_id: str):
         raise
 
 def process_documents_with_ai(documents, construct):
-    """Process documents using AI to extract user stories"""
+    """Process documents using AI to extract user stories with vectorization"""
     try:
-        print("🤖 Starting AI-powered document processing...")
+        print("🤖 Starting AI-powered document processing with vectorization...")
         
-        # Process documents to extract text and structure
+        # Step 1: Vectorize transcripts for enhanced context
+        print("🧠 Step 1: Vectorizing interview transcripts...")
+        vectorization_result = vector_processor.vectorize_transcripts(documents)
+        
+        if vectorization_result.get('vectorized'):
+            print(f"✅ Successfully vectorized {vectorization_result['total_chunks']} chunks")
+            vectorized_chunks = vectorization_result['chunks']
+        else:
+            print("⚠️ Vectorization failed, using original documents")
+            vectorized_chunks = documents
+        
+        # Step 2: Process documents to extract text and structure
         processed_docs = document_processor.process_documents(documents, construct)
         print(f"📄 Processed {len(processed_docs)} documents")
         
-        # Extract user stories using AI
+        # Step 3: Extract user stories using AI with enhanced context
         all_stories = []
         for doc in processed_docs:
             print(f"🧠 AI analyzing document: {doc.get('filename', 'Unknown')}")
@@ -117,7 +134,21 @@ def process_documents_with_ai(documents, construct):
             # Extract stories from each paragraph
             for i, paragraph in enumerate(doc.get('paragraphs', [])):
                 if paragraph.strip():
-                    story = await extraction_engine.extract_story_from_text(paragraph, doc, i)
+                    # Get relevant context chunks for this paragraph
+                    context_chunks = vector_processor.get_context_for_extraction(
+                        paragraph, 
+                        vectorized_chunks, 
+                        context_window=3
+                    )
+                    
+                    # Extract story using AI with enhanced context
+                    story = await extraction_engine.extract_story_from_text_with_context(
+                        paragraph, 
+                        doc, 
+                        i, 
+                        context_chunks
+                    )
+                    
                     if story:
                         all_stories.append(story)
                         print(f"✅ Extracted story: {story.get('User Story', 'Unknown')[:50]}...")
@@ -262,7 +293,8 @@ def process_job(job_id: str):
             requirements_converter.requirements_construct = requirements_construct
             print(f"📋 Using requirements construct: {requirements_construct.get('name', 'Unknown')}")
         
-        requirements = convert_stories_to_requirements(user_stories, construct)
+        # Pass vectorized chunks for enhanced context
+        requirements = convert_stories_to_requirements(user_stories, construct, vectorized_chunks)
         
         # Step 5: Generate and upload CSV files
         print("📊 Step 4: Generating and uploading results...")

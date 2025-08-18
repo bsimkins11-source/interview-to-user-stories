@@ -24,8 +24,8 @@ class RequirementsConverter:
         else:
             print("❌ No Gemini API key provided - requirements conversion will use basic patterns")
     
-    def convert_stories_to_requirements(self, user_stories: List[Dict[str, Any]], user_stories_construct: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Convert user stories to requirements using Gemini AI analysis with both constructs"""
+    def convert_stories_to_requirements(self, user_stories: List[Dict[str, Any]], user_stories_construct: Optional[Dict[str, Any]] = None, vectorized_chunks: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+        """Convert user stories to requirements using Gemini AI analysis with both constructs and vectorized context"""
         if not self.gemini_model:
             print("⚠️ Gemini AI not available - falling back to basic pattern matching")
             return self._convert_with_patterns_batch(user_stories)
@@ -33,6 +33,7 @@ class RequirementsConverter:
         print(f"🤖 Gemini AI analyzing {len(user_stories)} user stories for requirements conversion...")
         print(f"📊 User stories construct: {user_stories_construct.get('name', 'Unknown') if user_stories_construct else 'None'}")
         print(f"📋 Requirements construct: {self.requirements_construct.get('name', 'Unknown') if self.requirements_construct else 'None'}")
+        print(f"🧠 Vectorized context: {len(vectorized_chunks) if vectorized_chunks else 0} chunks available")
         
         requirements = []
         
@@ -40,8 +41,14 @@ class RequirementsConverter:
             try:
                 print(f"📋 Processing story {i}/{len(user_stories)}: {story.get('User Story', 'Unknown')[:50]}...")
                 
-                # Use Gemini to intelligently convert the story using both constructs
-                story_requirements = self._convert_with_gemini_intelligence(story, user_stories_construct)
+                # Get relevant context chunks for this story
+                context_chunks = []
+                if vectorized_chunks:
+                    context_chunks = self._get_context_for_story(story, vectorized_chunks)
+                    print(f"🔍 Found {len(context_chunks)} relevant context chunks for story {i}")
+                
+                # Use Gemini to intelligently convert the story using both constructs and context
+                story_requirements = self._convert_with_gemini_intelligence(story, user_stories_construct, context_chunks)
                 requirements.extend(story_requirements)
                 
                 print(f"✅ Story {i} converted to {len(story_requirements)} requirements")
@@ -57,7 +64,7 @@ class RequirementsConverter:
         print(f"🎯 Gemini AI successfully generated {len(requirements)} total requirements!")
         return requirements
     
-    def _convert_with_gemini_intelligence(self, story: Dict[str, Any], user_stories_construct: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def _convert_with_gemini_intelligence(self, story: Dict[str, Any], user_stories_construct: Optional[Dict[str, Any]] = None, context_chunks: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """Use Gemini AI to intelligently analyze and convert user stories to requirements"""
         try:
             # Extract story content
@@ -71,7 +78,7 @@ class RequirementsConverter:
                 return []
             
             # Build advanced AI prompt for intelligent requirements analysis
-            prompt = self._build_intelligent_requirements_prompt(story_text, capability, snippet, team, category, user_stories_construct)
+            prompt = self._build_intelligent_requirements_prompt(story_text, capability, snippet, team, category, user_stories_construct, context_chunks)
             
             print(f"🧠 Gemini analyzing: {story_text[:100]}...")
             
@@ -98,7 +105,7 @@ class RequirementsConverter:
             print(f"⚠️ Gemini AI conversion failed: {e}")
             return self._convert_with_patterns(story)
     
-    def _build_intelligent_requirements_prompt(self, story_text: str, capability: str, snippet: str, team: str, category: str, user_stories_construct: Optional[Dict[str, Any]] = None) -> str:
+    def _build_intelligent_requirements_prompt(self, story_text: str, capability: str, snippet: str, team: str, category: str, user_stories_construct: Optional[Dict[str, Any]] = None, context_chunks: Optional[List[Dict[str, Any]]] = None) -> str:
         """Build an intelligent AI prompt for advanced requirements analysis using both constructs"""
         
         # Build user stories construct context
@@ -124,6 +131,21 @@ REQUIREMENTS CONSTRUCT CONTEXT:
 - Priority Rules: {'; '.join(self.requirements_construct.get('priority_rules', []))}
 """
         
+        # Build vectorized context context
+        vectorized_context_context = ""
+        if context_chunks:
+            vectorized_context_context = f"""
+VECTORIZED CONTEXT:
+- Chunks: {len(context_chunks)}
+- Example Chunks:
+"""
+            for i, chunk in enumerate(context_chunks[:3]): # Show first 3 chunks for context
+                vectorized_context_context += f"""
+  Chunk {i+1}:
+  - Text: {chunk.get('text', 'N/A')}
+  - Embedding: {len(chunk.get('embedding', []))} dimensions
+"""
+        
         return f"""
 You are an expert business analyst and requirements engineer with deep expertise in software development, business processes, and system architecture. Your task is to analyze the provided user story and generate comprehensive, actionable requirements using advanced analysis techniques.
 
@@ -139,6 +161,8 @@ CONTEXTUAL INFORMATION:
 {user_stories_context}
 
 {requirements_context}
+
+{vectorized_context_context}
 
 ANALYSIS APPROACH:
 1. **Business Impact Analysis**: Identify the business value, stakeholders, and success metrics
@@ -292,3 +316,33 @@ REQ-DETAILS: [comprehensive specification with acceptance criteria]
         }
         
         return [requirement]
+
+    def _get_context_for_story(self, story: Dict[str, Any], vectorized_chunks: List[Dict[str, Any]], context_window: int = 3) -> List[Dict[str, Any]]:
+        """Get relevant context chunks for a specific user story"""
+        if not vectorized_chunks:
+            return []
+        
+        try:
+            # Use the story text to find relevant context
+            story_text = story.get('User Story', '') + ' ' + story.get('Capability', '')
+            
+            # Find most similar chunks
+            similarities = []
+            for chunk in vectorized_chunks:
+                if 'embedding' in chunk and chunk['embedding']:
+                    # Simple text similarity for now (could be enhanced with embedding similarity)
+                    chunk_text = chunk.get('text', '').lower()
+                    story_words = story_text.lower().split()
+                    
+                    # Calculate word overlap similarity
+                    overlap = sum(1 for word in story_words if word in chunk_text)
+                    if overlap > 0:
+                        similarities.append((overlap, chunk))
+            
+            # Sort by similarity and return top chunks
+            similarities.sort(key=lambda x: x[0], reverse=True)
+            return [chunk for _, chunk in similarities[:context_window]]
+            
+        except Exception as e:
+            print(f"⚠️ Error getting context for story: {e}")
+            return []
