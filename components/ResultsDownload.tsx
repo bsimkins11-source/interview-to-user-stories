@@ -76,6 +76,7 @@ interface JobStatus {
     name?: string;
     description?: string;
     defaults?: Record<string, string>;
+    priority_rules?: string[];
   };
 }
 
