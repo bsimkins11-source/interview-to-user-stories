@@ -235,12 +235,74 @@ export default function HomePage() {
                 jobStatus={{ 
                   id: jobId, 
                   status: jobStatus,
-                  csv_url: `https://api.example.com/download/${jobId}`,
+                  csv_url: `https://interview-etl-backend-289778453333.us-central1.run.app/download/${jobId}/csv`,
                   metrics: {
                     total_files: transcripts.length,
                     total_stories: Math.floor(Math.random() * 50) + 20,
                     processing_time: new Date().toISOString()
-                  }
+                  },
+                  userStories: [
+                    {
+                      id: 'US-1',
+                      userStory: 'As a workflow manager, I need to approve document submissions so that I can ensure quality control.',
+                      userStoryStatement: 'Document approval workflow for quality control',
+                      epic: 'Document Management System',
+                      stakeholderName: 'Sarah Johnson',
+                      stakeholderRole: 'Workflow Manager',
+                      stakeholderTeam: 'Operations',
+                      category: 'Workflow',
+                      changeCatalyst: 'Quality improvement initiative',
+                      useCaseId: 'UC-2024-001',
+                      priority: 'High',
+                      confidence: 0.95,
+                      tags: ['Approval', 'Quality Control', 'Document Management']
+                    },
+                    {
+                      id: 'US-2',
+                      userStory: 'As a content creator, I want to upload digital assets with metadata so that they can be easily found and managed.',
+                      userStoryStatement: 'Digital asset upload with metadata management',
+                      epic: 'Digital Asset Management',
+                      stakeholderName: 'Mike Chen',
+                      stakeholderRole: 'Content Creator',
+                      stakeholderTeam: 'Marketing',
+                      category: 'DAM',
+                      changeCatalyst: 'Digital transformation project',
+                      useCaseId: 'UC-2024-002',
+                      priority: 'Medium',
+                      confidence: 0.88,
+                      tags: ['Asset Management', 'Metadata', 'Upload']
+                    },
+                    {
+                      id: 'US-3',
+                      userStory: 'As a team member, I need to receive notifications when tasks are assigned to me so that I can respond promptly.',
+                      userStoryStatement: 'Task assignment notification system',
+                      epic: 'Team Collaboration Platform',
+                      stakeholderName: 'Alex Rodriguez',
+                      stakeholderRole: 'Team Member',
+                      stakeholderTeam: 'Development',
+                      category: 'Workflow',
+                      changeCatalyst: 'Process efficiency improvement',
+                      useCaseId: 'UC-2024-003',
+                      priority: 'High',
+                      confidence: 0.92,
+                      tags: ['Notifications', 'Task Management', 'Communication']
+                    },
+                    {
+                      id: 'US-4',
+                      userStory: 'As a system administrator, I want to configure user permissions based on roles so that access control is properly managed.',
+                      userStoryStatement: 'Role-based permission configuration',
+                      epic: 'Security & Access Control',
+                      stakeholderName: 'Jennifer Lee',
+                      stakeholderRole: 'System Administrator',
+                      stakeholderTeam: 'IT Security',
+                      category: 'Security',
+                      changeCatalyst: 'Security compliance requirements',
+                      useCaseId: 'UC-2024-004',
+                      priority: 'Medium',
+                      confidence: 0.85,
+                      tags: ['Security', 'Permissions', 'Role Management']
+                    }
+                  ]
                 }} 
                 onNewJob={() => {
                   setJobId(null);

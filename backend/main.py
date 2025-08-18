@@ -1,9 +1,12 @@
 import os
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from typing import List, Dict, Any
 import json
+import os
+from google.cloud import storage
+from google.cloud import firestore
 
 from models import JobCreate, JobResponse, ConstructCreate, ConstructResponse
 from services.job_service import JobService
@@ -28,6 +31,9 @@ job_service = JobService()
 construct_service = ConstructService()
 storage_service = StorageService()
 external_import_service = ExternalImportService()
+
+# Initialize Firestore client for download endpoints
+firestore_client = firestore.Client()
 
 @app.get("/health")
 async def health_check():
@@ -249,6 +255,94 @@ async def compare_with_interview_results(import_id: str, job_id: str):
         }
         
         return comparison
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/download/{job_id}/csv")
+async def download_csv(job_id: str):
+    """Download CSV results for a completed job"""
+    try:
+        # Get job details from Firestore
+        job_doc = firestore_client.collection('jobs').document(job_id).get()
+        if not job_doc.exists:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        job_data = job_doc.to_dict()
+        if job_data.get('status') != 'COMPLETED':
+            raise HTTPException(status_code=400, detail="Job not completed yet")
+        
+        csv_url = job_data.get('csv_url')
+        if not csv_url:
+            raise HTTPException(status_code=404, detail="CSV not found for this job")
+        
+        # If it's a GCS URL, generate a signed download URL
+        if csv_url.startswith('gs://'):
+            bucket_name = csv_url.split('/')[2]
+            blob_name = '/'.join(csv_url.split('/')[3:])
+            
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(blob_name)
+            
+            if not blob.exists():
+                raise HTTPException(status_code=404, detail="CSV file not found in storage")
+            
+            # Generate signed URL
+            signed_url = blob.generate_signed_url(
+                version="v4",
+                expiration=3600,  # 1 hour
+                method="GET"
+            )
+            
+            return {"download_url": signed_url}
+        else:
+            # Return the direct URL if it's already a signed URL
+            return {"download_url": csv_url}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/download/{job_id}/csv/direct")
+async def download_csv_direct(job_id: str):
+    """Direct CSV download (streams the file)"""
+    try:
+        # Get job details from Firestore
+        job_doc = firestore_client.collection('jobs').document(job_id).get()
+        if not job_doc.exists:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        job_data = job_doc.to_dict()
+        if job_data.get('status') != 'COMPLETED':
+            raise HTTPException(status_code=400, detail="Job not completed yet")
+        
+        csv_url = job_data.get('csv_url')
+        if not csv_url:
+            raise HTTPException(status_code=404, detail="CSV not found for this job")
+        
+        # If it's a GCS URL, download and stream the file
+        if csv_url.startswith('gs://'):
+            bucket_name = csv_url.split('/')[2]
+            blob_name = '/'.join(csv_url.split('/')[3:])
+            
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(blob_name)
+            
+            if not blob.exists():
+                raise HTTPException(status_code=404, detail="CSV file not found in storage")
+            
+            # Download the CSV content
+            csv_content = blob.download_as_text()
+            
+            # Return as file response
+            return FileResponse(
+                content=csv_content.encode(),
+                media_type='text/csv',
+                filename=f'user_stories_{job_id}.csv'
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Direct download only available for GCS files")
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

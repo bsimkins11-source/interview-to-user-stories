@@ -15,6 +15,7 @@ class ExternalImportService:
     def __init__(self):
         self.firestore_client = firestore.Client()
         self.storage_client = storage.Client()
+        self.import_counter = 1  # Initialize sequential counter for external imports
         
         # Initialize credentials if available
         if os.path.exists('service-account-key.json'):
@@ -23,6 +24,12 @@ class ExternalImportService:
             )
             self.firestore_client = firestore.Client(credentials=credentials)
             self.storage_client = storage.Client(credentials=credentials)
+    
+    def _generate_sequential_import_id(self) -> str:
+        """Generate sequential ID for external imports: US-EXT-1, US-EXT-2, etc."""
+        import_id = f"US-EXT-{self.import_counter}"
+        self.import_counter += 1
+        return import_id
     
     async def import_from_folder(self, folder_url: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Import user stories from a cloud storage folder"""
@@ -353,7 +360,7 @@ class ExternalImportService:
                 for match in matches:
                     if len(match) == 3:  # As a... format
                         stories.append({
-                            'id': f'text_{len(stories) + 1}',
+                            'id': self._generate_sequential_import_id(),  # Use sequential ID
                             'role': match[0].strip(),
                             'capability': match[1].strip(),
                             'benefit': match[2].strip(),
@@ -362,7 +369,7 @@ class ExternalImportService:
                         })
                     else:  # Other formats
                         stories.append({
-                            'id': f'text_{len(stories) + 1}',
+                            'id': self._generate_sequential_import_id(),  # Use sequential ID
                             'description': match[0].strip(),
                             'source': 'Text Import',
                             'category': 'General'
@@ -390,9 +397,10 @@ class ExternalImportService:
         """Store imported stories in Firestore"""
         try:
             # Create import record
-            import_ref = self.firestore_client.collection('external_imports').document()
+            import_id = self._generate_sequential_import_id()
+            import_ref = self.firestore_client.collection('external_imports').document(import_id)
             import_data = {
-                'id': import_ref.id,
+                'id': import_id,
                 'source_type': source_type,
                 'source_url': metadata.get('source_url', ''),
                 'display_name': metadata.get('display_name', f'Imported {source_type}'),
@@ -409,7 +417,7 @@ class ExternalImportService:
                 story_ref = self.firestore_client.collection('external_stories').document()
                 story_data = {
                     'id': story_ref.id,
-                    'import_id': import_ref.id,
+                    'import_id': import_id,
                     'source_type': source_type,
                     'original_data': story,
                     'imported_at': firestore.SERVER_TIMESTAMP,

@@ -11,6 +11,7 @@ class ExtractionEngine:
     def __init__(self, construct: Dict[str, Any], llm_provider: str = "gemini"):
         self.construct = construct
         self.llm_provider = llm_provider
+        self.story_counter = 1  # Initialize sequential counter for user story IDs
         
         # Initialize AI models with deterministic settings
         if llm_provider == "gemini":
@@ -33,6 +34,12 @@ class ExtractionEngine:
             "The system must {capability} to support {workflow}",
             "Access control should {permission} based on {criteria}"
         ]
+    
+    def _generate_sequential_id(self) -> str:
+        """Generate sequential user story ID: US-1, US-2, etc."""
+        story_id = f"US-{self.story_counter}"
+        self.story_counter += 1
+        return story_id
     
     async def extract_stories(self, processed_documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Extract user stories from processed documents using AI with deterministic processing"""
@@ -209,7 +216,7 @@ class ExtractionEngine:
                     normalized_benefit = self._normalize_text(story_data.get('benefit', ''))
                     
                     return {
-                        'user_story_id': f"{doc['filename']}_{paragraph_index}",
+                        'user_story_id': self._generate_sequential_id(),  # Use sequential ID: US-1, US-2, etc.
                         'role': normalized_role,
                         'capability': normalized_capability,
                         'benefit': normalized_benefit,
@@ -281,7 +288,7 @@ class ExtractionEngine:
             capability = text[:100].strip()
         
         return {
-            'user_story_id': f"{doc['filename']}_{paragraph_index}",
+            'user_story_id': self._generate_sequential_id(),  # Use sequential ID: US-1, US-2, etc.
             'role': role,
             'capability': capability,
             'benefit': 'Improved efficiency and user experience',
