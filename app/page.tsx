@@ -56,7 +56,21 @@ export default function HomePage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>('idle');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [forceRefresh, setForceRefresh] = useState(0); // Add force refresh state
   const { toast } = useToast();
+
+  // Add useEffect to watch for construct changes and log them
+  useEffect(() => {
+    console.log('Construct state changed:', construct);
+    console.log('Can proceed to next:', canProceedToNext());
+  }, [construct]);
+
+  // Force refresh when construct changes to ensure UI updates
+  useEffect(() => {
+    if (construct) {
+      setForceRefresh(prev => prev + 1);
+    }
+  }, [construct]);
 
   const steps = [
     { id: 'construct', title: 'Define Output Structure', icon: FileText, description: 'Define the structure for your user stories' },
@@ -134,6 +148,9 @@ export default function HomePage() {
       console.log('Can proceed to next:', canProceedToNext());
       console.log('Current construct state:', construct);
       
+      // Force a state refresh to ensure UI updates
+      setForceRefresh(prev => prev + 1);
+      
       // Force navigation to next step after a short delay to ensure state is updated
       setTimeout(() => {
         console.log('Timeout callback - checking navigation...');
@@ -147,7 +164,7 @@ export default function HomePage() {
           console.log('Cannot auto-advance, manual navigation required');
           console.log('Current state:', { currentStep, construct: !!construct });
         }
-      }, 1000); // Increased delay to ensure state update
+      }, 500); // Reduced delay since we're forcing refresh
       
     } catch (error) {
       console.error('Error saving construct:', error);
@@ -578,19 +595,25 @@ export default function HomePage() {
 
           {/* Navigation */}
           <div className="flex justify-between mt-8">
-            <Button
-              variant="outline"
-              onClick={() => {
-                console.log('Back button clicked');
-                handleBack();
-              }}
-              disabled={!canGoBack()}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Previous
-            </Button>
+            {/* Only show Previous button if we can go back */}
+            {canGoBack() && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  console.log('Back button clicked');
+                  handleBack();
+                }}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Previous
+              </Button>
+            )}
+            
+            {/* If no Previous button, add a spacer to keep Next button on the right */}
+            {!canGoBack() && <div></div>}
             
             <Button
+              key={`next-${forceRefresh}`} // Force re-render when construct changes
               onClick={() => {
                 console.log('Next button clicked');
                 console.log('Current state:', { 
