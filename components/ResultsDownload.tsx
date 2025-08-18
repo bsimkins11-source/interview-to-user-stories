@@ -56,6 +56,7 @@ interface UserStory {
   lifecyclePhase?: string;
   source?: string;
   snippet?: string;
+  extractionMethod?: string;
 }
 
 interface JobMetrics {
