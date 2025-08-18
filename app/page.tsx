@@ -69,6 +69,7 @@ export default function HomePage() {
     const canProceed = (() => {
       switch (currentStep) {
         case 'construct':
+          // For construct step, we can proceed if we have a construct OR if we're in the process of saving
           return construct !== null;
         case 'upload':
           return construct !== null && transcripts.length > 0;
@@ -84,6 +85,7 @@ export default function HomePage() {
     console.log('Navigation check:', {
       currentStep,
       construct: construct !== null,
+      constructValue: construct,
       transcriptsCount: transcripts.length,
       canProceed
     });
@@ -119,7 +121,7 @@ export default function HomePage() {
       const savedConstruct = await createConstruct(newConstruct);
       console.log('Construct saved successfully:', savedConstruct);
       
-      // Set the construct state
+      // Set the construct state immediately
       setConstruct(newConstruct);
       console.log('Construct state updated:', newConstruct);
       
@@ -132,15 +134,20 @@ export default function HomePage() {
       console.log('Can proceed to next:', canProceedToNext());
       console.log('Current construct state:', construct);
       
-      // Force navigation to next step after a short delay
+      // Force navigation to next step after a short delay to ensure state is updated
       setTimeout(() => {
+        console.log('Timeout callback - checking navigation...');
+        console.log('Construct state in timeout:', construct);
+        console.log('Can proceed check:', canProceedToNext());
+        
         if (canProceedToNext()) {
           console.log('Auto-advancing to next step...');
           handleNext();
         } else {
           console.log('Cannot auto-advance, manual navigation required');
+          console.log('Current state:', { currentStep, construct: !!construct });
         }
-      }, 500);
+      }, 1000); // Increased delay to ensure state update
       
     } catch (error) {
       console.error('Error saving construct:', error);
@@ -295,7 +302,11 @@ export default function HomePage() {
                   Your construct "{construct.name}" has been defined with {construct.output_schema.length} fields.
                 </p>
                 <Button 
-                  onClick={handleNext}
+                  onClick={() => {
+                    console.log('Continue button clicked');
+                    console.log('Current state before navigation:', { currentStep, construct: !!construct });
+                    handleNext();
+                  }}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   Continue to Upload Transcripts
@@ -582,10 +593,17 @@ export default function HomePage() {
             <Button
               onClick={() => {
                 console.log('Next button clicked');
-                console.log('Current state:', { currentStep, construct: !!construct, canProceed: canProceedToNext() });
+                console.log('Current state:', { 
+                  currentStep, 
+                  construct: !!construct, 
+                  constructValue: construct,
+                  canProceed: canProceedToNext() 
+                });
+                console.log('Button disabled state:', !canProceedToNext());
                 handleNext();
               }}
               disabled={!canProceedToNext()}
+              className={!canProceedToNext() ? 'opacity-50 cursor-not-allowed' : ''}
             >
               Next
               <ArrowRight className="ml-2 h-4 w-4" />
