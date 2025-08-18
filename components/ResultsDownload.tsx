@@ -71,6 +71,11 @@ interface JobStatus {
   csv_url: string;
   userStories: UserStory[];
   metrics: JobMetrics;
+  construct?: {
+    output_schema: string[];
+    name?: string;
+    description?: string;
+  };
 }
 
 interface ResultsDownloadProps {
