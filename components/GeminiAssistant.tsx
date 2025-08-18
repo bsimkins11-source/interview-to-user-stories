@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, Send, X, HelpCircle, Lightbulb, BookOpen, Zap, Target, FileText, Upload, Play, Download, Settings } from 'lucide-react';
 import { generateGeminiResponse, getStepSpecificGuidance, ChatContext } from '@/lib/gemini';
 import { useToast } from '@/components/ui/use-toast';
+import React from 'react'; // Added missing import for React
 
 interface GeminiAssistantProps {
   currentStep: string;
@@ -19,7 +20,48 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
   const [isOpen, setIsOpen] = useState(currentStep === 'home'); // Open by default on home page
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [chatHistory, setChatHistory] = useState<Array<{type: 'user' | 'assistant', message: string, timestamp: Date}>>([]);
+  
+  // Session-based chat history that persists across page navigation
+  const [chatHistory, setChatHistory] = useState<Array<{type: 'user' | 'assistant', message: string, timestamp: Date}>>(() => {
+    // Initialize from localStorage if available, otherwise empty array
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('gemini-chat-history');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Convert timestamp strings back to Date objects
+          return parsed.map((chat: any) => ({
+            ...chat,
+            timestamp: new Date(chat.timestamp)
+          }));
+        } catch (e) {
+          console.warn('Failed to parse saved chat history:', e);
+          return [];
+        }
+      }
+    }
+    return [];
+  });
+
+  // Save chat history to localStorage whenever it changes
+  const saveChatHistory = (history: Array<{type: 'user' | 'assistant', message: string, timestamp: Date}>) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('gemini-chat-history', JSON.stringify(history));
+    }
+  };
+
+  // Update localStorage whenever chat history changes
+  React.useEffect(() => {
+    saveChatHistory(chatHistory);
+  }, [chatHistory]);
+
+  // Clear chat history when user leaves the app (optional - can be triggered by user action)
+  const clearChatHistory = () => {
+    setChatHistory([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('gemini-chat-history');
+    }
+  };
 
   const getStepContext = () => {
     switch (currentStep) {
@@ -213,7 +255,8 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
         construct,
         userStories,
         requirements: [],
-        transcripts: []
+        transcripts: [],
+        chatHistory
       };
 
       // Generate response using Gemini API
@@ -264,6 +307,11 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
               <div>
                 <CardTitle className="text-xl">{context.title}</CardTitle>
                 <p className="text-sm text-gray-600">{getStepSpecificGuidance(currentStep)}</p>
+                {chatHistory.length > 0 && (
+                  <p className="text-xs text-green-600 mt-1">
+                    💬 Chat history preserved across steps
+                  </p>
+                )}
               </div>
             </div>
             <Button
@@ -336,6 +384,17 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
             {/* Chat History */}
             {chatHistory.length > 0 && (
               <div className="bg-white rounded-lg p-4 border border-gray-200 max-h-64 overflow-y-auto">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm">Chat History</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearChatHistory}
+                    className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
+                  >
+                    Clear Chat
+                  </Button>
+                </div>
                 <div className="space-y-3">
                   {chatHistory.map((chat, index) => (
                     <div key={index} className={`flex ${chat.type === 'user' ? 'justify-end' : 'justify-start'}`}>

@@ -53,6 +53,7 @@ export interface ChatContext {
   userStories?: any[];
   requirements?: any[];
   transcripts?: any[];
+  chatHistory?: Array<{type: 'user' | 'assistant', message: string, timestamp: Date}>;
 }
 
 export async function generateGeminiResponse(
@@ -88,7 +89,7 @@ export async function generateGeminiResponse(
 }
 
 function createContextAwarePrompt(userQuestion: string, context: ChatContext): string {
-  const { currentStep, construct, userStories, requirements, transcripts } = context;
+  const { currentStep, construct, userStories, requirements, transcripts, chatHistory } = context;
   
   // Build context string
   let contextString = `Current Step: ${currentStep}\n`;
@@ -109,13 +110,21 @@ function createContextAwarePrompt(userQuestion: string, context: ChatContext): s
     contextString += `Requirements: ${requirements.length} generated\n`;
   }
 
+  // Add conversation history for context
+  let conversationContext = '';
+  if (chatHistory && chatHistory.length > 0) {
+    conversationContext = `\nRecent Conversation History:\n${chatHistory.slice(-6).map(chat => 
+      `${chat.type === 'user' ? 'User' : 'Assistant'}: ${chat.message}`
+    ).join('\n')}\n`;
+  }
+
   return `
 You are an AI assistant for the Interview ETL application. Use the following knowledge base to provide helpful, context-aware assistance:
 
 ${KNOWLEDGE_BASE}
 
 Current User Context:
-${contextString}
+${contextString}${conversationContext}
 
 User Question: ${userQuestion}
 
@@ -126,7 +135,9 @@ Instructions:
 4. Use the knowledge base to give accurate, detailed responses
 5. If the user is asking about a specific step, provide guidance for that step
 6. If they're asking about capabilities, explain what the app can do
-7. Always be encouraging and supportive
+7. Consider the conversation history for continuity and context
+8. Always be encouraging and supportive
+9. If the user is referencing previous questions or context, acknowledge that continuity
 
 Please provide a helpful response based on the user's question and current context:
 `;
