@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Upload, FileText, Download, Play, ArrowRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Upload, FileText, Download, Play, ArrowRight, ArrowLeft, MessageCircle, Zap, Settings, Target } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ConstructEditor } from '@/components/ConstructEditor';
 import InterviewTranscriptInput from '@/components/InterviewTranscriptInput';
@@ -152,161 +152,105 @@ export default function HomePage() {
 
   const handleConstructSave = async (newConstruct: Construct) => {
     try {
-      // Validate construct data
       if (!newConstruct.name?.trim()) {
-        toast({
-          title: "Validation Error",
-          description: "Construct name is required.",
-          variant: "destructive",
-        });
+        toast({ title: "Validation Error", description: "Construct name is required.", variant: "destructive" });
         return;
       }
-
       if (!newConstruct.output_schema || newConstruct.output_schema.length === 0) {
-        toast({
-          title: "Validation Error",
-          description: "At least one output schema field is required.",
-          variant: "destructive",
-        });
+        toast({ title: "Validation Error", description: "At least one output schema field is required.", variant: "destructive" });
         return;
       }
 
-      console.log('Saving construct:', newConstruct);
-      
-      // Save construct to backend
-      const savedConstruct = await createConstruct(newConstruct);
-      console.log('Construct saved successfully:', savedConstruct);
-      
-      // Set the construct state immediately
+      // Optimistic update so navigation can proceed even if backend is unavailable
       setConstruct(newConstruct);
-      console.log('Construct state updated:', newConstruct);
-      
+      setForceRefresh(prev => prev + 1);
+
       toast({
         title: "Construct saved!",
         description: `Your output structure "${newConstruct.name}" has been defined with ${newConstruct.output_schema.length} fields.`,
       });
-      
-      // Force a state refresh to ensure UI updates
-      setForceRefresh(prev => prev + 1);
-      
-      // Wait for state to update, then check navigation
+
+      // Auto-advance if possible
       setTimeout(() => {
-        console.log('Timeout callback - checking navigation...');
-        console.log('Current construct state:', construct);
-        console.log('Can proceed check:', canProceedToNext());
-        
         if (canProceedToNext()) {
-          console.log('Auto-advancing to next step...');
           handleNext();
-        } else {
-          console.log('Cannot auto-advance, manual navigation required');
-          console.log('Current state:', { currentStep, construct: !!construct });
         }
-      }, 100); // Reduced delay since we're forcing refresh
-      
+      }, 50);
+
+      // Fire-and-forget backend save
+      try {
+        await createConstruct(newConstruct);
+      } catch (apiError) {
+        console.warn('Backend construct save failed; using local construct only.', apiError);
+        toast({
+          title: "Saved locally",
+          description: "Backend not reachable. Proceeding with your local construct.",
+        });
+      }
+
     } catch (error) {
       console.error('Error saving construct:', error);
-      
       let errorMessage = "Failed to save construct";
       if (error instanceof APIError) {
         errorMessage = error.message;
-        
-        // Handle specific error types
         if (error.code === 'VALIDATION_ERROR') {
-          toast({
-            title: "Validation Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
+          toast({ title: "Validation Error", description: errorMessage, variant: "destructive" });
           return;
         }
       }
-      
-      toast({
-        title: "Error saving construct",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "Error saving construct", description: errorMessage, variant: "destructive" });
     }
   };
 
   const handleRequirementsConstructSave = async (newRequirementsConstruct: Construct) => {
     try {
-      // Validate requirements construct data
       if (!newRequirementsConstruct.name?.trim()) {
-        toast({
-          title: "Validation Error",
-          description: "Requirements construct name is required.",
-          variant: "destructive",
-        });
+        toast({ title: "Validation Error", description: "Requirements construct name is required.", variant: "destructive" });
         return;
       }
-
       if (!newRequirementsConstruct.output_schema || newRequirementsConstruct.output_schema.length === 0) {
-        toast({
-          title: "Validation Error",
-          description: "At least one output schema field is required.",
-          variant: "destructive",
-        });
+        toast({ title: "Validation Error", description: "At least one output schema field is required.", variant: "destructive" });
         return;
       }
 
-      console.log('Saving requirements construct:', newRequirementsConstruct);
-      
-      // Save requirements construct to backend
-      const savedRequirementsConstruct = await createConstruct(newRequirementsConstruct);
-      console.log('Requirements construct saved successfully:', savedRequirementsConstruct);
-      
-      // Set the requirements construct state immediately
+      // Optimistic update
       setRequirementsConstruct(newRequirementsConstruct);
-      console.log('Requirements construct state updated:', newRequirementsConstruct);
-      
+      setForceRefresh(prev => prev + 1);
+
       toast({
         title: "Requirements construct saved!",
         description: `Your requirements structure "${newRequirementsConstruct.name}" has been defined with ${newRequirementsConstruct.output_schema.length} fields.`,
       });
-      
-      // Force a state refresh to ensure UI updates
-      setForceRefresh(prev => prev + 1);
-      
-      // Wait for state to update, then check navigation
+
+      // Auto-advance if possible
       setTimeout(() => {
-        console.log('Timeout callback - checking navigation...');
-        console.log('Current requirements construct state:', requirementsConstruct);
-        console.log('Can proceed check:', canProceedToNext());
-        
         if (canProceedToNext()) {
-          console.log('Auto-advancing to next step...');
           handleNext();
-        } else {
-          console.log('Cannot auto-advance, manual navigation required');
-          console.log('Current state:', { currentStep, requirementsConstruct: !!requirementsConstruct });
         }
-      }, 100); // Reduced delay since we're forcing refresh
-      
+      }, 50);
+
+      // Fire-and-forget backend save
+      try {
+        await createConstruct(newRequirementsConstruct);
+      } catch (apiError) {
+        console.warn('Backend requirements construct save failed; using local construct only.', apiError);
+        toast({
+          title: "Saved locally",
+          description: "Backend not reachable. Proceeding with your local requirements construct.",
+        });
+      }
+
     } catch (error) {
       console.error('Error saving requirements construct:', error);
-      
       let errorMessage = "Failed to save requirements construct";
       if (error instanceof APIError) {
         errorMessage = error.message;
-        
-        // Handle specific error types
         if (error.code === 'VALIDATION_ERROR') {
-          toast({
-            title: "Validation Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
+          toast({ title: "Validation Error", description: errorMessage, variant: "destructive" });
           return;
         }
       }
-      
-      toast({
-        title: "Error saving requirements construct",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "Error saving requirements construct", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -466,9 +410,11 @@ export default function HomePage() {
           <div className="space-y-6">
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold">Define Your Output Structure</h2>
-              <p className="text-muted-foreground">
-                Define the structure for your user stories. This will guide the AI extraction process.
-              </p>
+              <p className="text-muted-foreground">Define the structure for your user stories. This will guide the AI extraction process.</p>
+              <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
+                <MessageCircle className="w-4 h-4" />
+                <span>Need help? Click the AI Assistant button for guidance!</span>
+              </div>
             </div>
             <ConstructEditor onSave={handleConstructSave} />
             
@@ -509,19 +455,17 @@ export default function HomePage() {
           <div className="space-y-6">
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold">Upload Interview Transcripts</h2>
-              <p className="text-muted-foreground">
-                Upload or link to interview transcripts. You can add multiple sources.
-              </p>
-              {!construct && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-yellow-800 text-sm">
-                    ⚠️ You need to define your output structure first. Please go back to the previous step.
-                  </p>
-                </div>
-              )}
+              <p className="text-muted-foreground">Upload or link to interview transcripts for AI processing.</p>
+              <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
+                <MessageCircle className="w-4 h-4" />
+                <span>Need help? Click the AI Assistant button for guidance!</span>
+              </div>
             </div>
-            <InterviewTranscriptInput onTranscriptsAdded={handleTranscriptsAdded} onTranscriptsRemoved={handleTranscriptsRemoved} />
-            <ExternalStoryImporter onStoriesImported={handleExternalStoriesImported} existingStories={externalStories} />
+            <InterviewTranscriptInput
+              onTranscriptsAdded={handleTranscriptsAdded}
+              onTranscriptsRemoved={handleTranscriptsRemoved}
+            />
+            <ExternalStoryImporter onStoriesImported={handleExternalStoriesImported} />
             
             {/* Progress indicator */}
             <div className="bg-slate-50 rounded-lg p-4">
@@ -554,36 +498,30 @@ export default function HomePage() {
           <div className="space-y-6">
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold">Process & Extract</h2>
-              <p className="text-muted-foreground">
-                AI-powered extraction using your defined structure and interview transcripts.
-              </p>
-            </div>
-            {jobId ? (
-              <JobStatus 
-                jobId={jobId} 
-                onComplete={(jobData) => {
-                  setJobStatus('completed');
-                  setCurrentStep('download');
-                }}
-                onBack={() => setCurrentStep('upload')}
-              />
-            ) : (
-              <div className="text-center">
-                <Button 
-                  onClick={handleStartProcessing} 
-                  size="lg"
-                  disabled={isProcessing}
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  {isProcessing ? 'Processing...' : 'Start Processing'}
-                </Button>
-                {isProcessing && (
-                  <div className="mt-4 text-sm text-muted-foreground">
-                    Creating job and starting AI processing...
-                  </div>
-                )}
+              <p className="text-muted-foreground">AI-powered extraction and processing of your interview data.</p>
+              <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
+                <MessageCircle className="w-4 h-4" />
+                <span>Need help? Click the AI Assistant button for guidance!</span>
               </div>
-            )}
+            </div>
+            <Button
+              onClick={handleStartProcessing}
+              disabled={isProcessing}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg"
+            >
+              {isProcessing ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-5 w-5" />
+                  Start AI Processing
+                </>
+              )}
+            </Button>
+            {isProcessing && <JobStatus jobId={jobId!} />}
           </div>
         );
 
@@ -592,91 +530,18 @@ export default function HomePage() {
           <div className="space-y-6">
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold">Download Results</h2>
-              <p className="text-muted-foreground">
-                Your structured user stories are ready for download.
-              </p>
+              <p className="text-muted-foreground">Get your structured user stories and requirements.</p>
+              <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
+                <MessageCircle className="w-4 h-4" />
+                <span>Need help? Click the AI Assistant button for guidance!</span>
+              </div>
             </div>
-            {jobId && (
-              <ResultsDownload 
-                jobStatus={{ 
-                  id: jobId, 
-                  status: jobStatus,
-                  csv_url: `https://interview-etl-backend-289778453333.us-central1.run.app/download/${jobId}/csv`,
-                  metrics: {
-                    total_files: transcripts.length,
-                    total_stories: Math.floor(Math.random() * 50) + 20,
-                    processing_time: new Date().toISOString()
-                  },
-                  userStories: [
-                    {
-                      id: 'US-1',
-                      userStory: 'As a workflow manager, I need to approve document submissions so that I can ensure quality control.',
-                      userStoryStatement: 'Document approval workflow for quality control',
-                      epic: 'Document Management System',
-                      stakeholderName: 'Sarah Johnson',
-                      stakeholderRole: 'Workflow Manager',
-                      stakeholderTeam: 'Operations',
-                      category: 'Workflow',
-                      changeCatalyst: 'Quality improvement initiative',
-                      useCaseId: 'UC-2024-001',
-                      priority: 'High',
-                      confidence: 0.95,
-                      tags: ['Approval', 'Quality Control', 'Document Management']
-                    },
-                    {
-                      id: 'US-2',
-                      userStory: 'As a content creator, I want to upload digital assets with metadata so that they can be easily found and managed.',
-                      userStoryStatement: 'Digital asset upload with metadata management',
-                      epic: 'Digital Asset Management',
-                      stakeholderName: 'Mike Chen',
-                      stakeholderRole: 'Content Creator',
-                      stakeholderTeam: 'Marketing',
-                      category: 'DAM',
-                      changeCatalyst: 'Digital transformation project',
-                      useCaseId: 'UC-2024-002',
-                      priority: 'Medium',
-                      confidence: 0.88,
-                      tags: ['Asset Management', 'Metadata', 'Upload']
-                    },
-                    {
-                      id: 'US-3',
-                      userStory: 'As a team member, I need to receive notifications when tasks are assigned to me so that I can respond promptly.',
-                      userStoryStatement: 'Task assignment notification system',
-                      epic: 'Team Collaboration Platform',
-                      stakeholderName: 'Alex Rodriguez',
-                      stakeholderRole: 'Team Member',
-                      stakeholderTeam: 'Development',
-                      category: 'Workflow',
-                      changeCatalyst: 'Process efficiency improvement',
-                      useCaseId: 'UC-2024-003',
-                      priority: 'High',
-                      confidence: 0.92,
-                      tags: ['Notifications', 'Task Management', 'Communication']
-                    },
-                    {
-                      id: 'US-4',
-                      userStory: 'As a system administrator, I want to configure user permissions based on roles so that access control is properly managed.',
-                      userStoryStatement: 'Role-based permission configuration',
-                      epic: 'Security & Access Control',
-                      stakeholderName: 'Jennifer Lee',
-                      stakeholderRole: 'System Administrator',
-                      stakeholderTeam: 'IT Security',
-                      category: 'Security',
-                      changeCatalyst: 'Security compliance requirements',
-                      useCaseId: 'UC-2024-004',
-                      priority: 'Medium',
-                      confidence: 0.85,
-                      tags: ['Security', 'Permissions', 'Role Management']
-                    }
-                  ]
-                }} 
-                onNewJob={() => {
-                  setJobId(null);
-                  setJobStatus('idle');
-                  setCurrentStep('construct');
-                }}
-              />
-            )}
+            <ResultsDownload
+              userStories={[]}
+              requirements={requirements}
+              onDownloadStories={() => {}}
+              onDownloadRequirements={() => {}}
+            />
           </div>
         );
 
@@ -685,9 +550,11 @@ export default function HomePage() {
           <div className="space-y-6">
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold">Define Requirements Structure</h2>
-              <p className="text-muted-foreground">
-                Define the structure for your requirements. This will guide the AI conversion process.
-              </p>
+              <p className="text-muted-foreground">Define the structure for your requirements. This will guide the AI conversion process.</p>
+              <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
+                <MessageCircle className="w-4 h-4" />
+                <span>Need help? Click the AI Assistant button for guidance!</span>
+              </div>
             </div>
             <RequirementsConstructEditor onSave={handleRequirementsConstructSave} />
             
@@ -727,10 +594,12 @@ export default function HomePage() {
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4">
-              <h2 className="text-2xl font-bold">Requirements Generation</h2>
-              <p className="text-muted-foreground">
-                AI-powered conversion of user stories into structured requirements using your defined schema.
-              </p>
+              <h2 className="text-2xl font-bold">Requirements</h2>
+              <p className="text-muted-foreground">Convert user stories to requirements using AI.</p>
+              <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
+                <MessageCircle className="w-4 h-4" />
+                <span>Need help? Click the AI Assistant button for guidance!</span>
+              </div>
             </div>
             
             {/* Show requirements construct info */}
@@ -1152,6 +1021,115 @@ export default function HomePage() {
             construct={construct}
             userStories={[]}
           />
+        </div>
+
+        {/* Gemini AI Help Section */}
+        <div className="mt-8 max-w-6xl mx-auto">
+          <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0 shadow-lg">
+            <CardContent className="p-8">
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mb-4">
+                  <MessageCircle className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Gemini AI Assistant</h2>
+                <p className="text-gray-600">Get real-time help and guidance at every step of your journey</p>
+              </div>
+              
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="bg-white rounded-lg p-6 border border-blue-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Schema Design</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">Get expert guidance on designing optimal output schemas for your user stories and requirements</p>
+                  <div className="flex items-center text-xs text-blue-600">
+                    <Zap className="w-4 h-4 mr-1" />
+                    AI-powered recommendations
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-6 border border-green-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                      <Upload className="w-5 h-5 text-green-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">File Processing</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">Learn best practices for preparing and organizing your interview transcripts for optimal AI processing</p>
+                  <div className="flex items-center text-xs text-green-600">
+                    <Zap className="w-4 h-4 mr-1" />
+                    Upload optimization tips
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-6 border border-purple-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                      <Play className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">AI Processing</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">Understand how our AI processes your transcripts and extracts insights using advanced vectorization</p>
+                  <div className="flex items-center text-xs text-purple-600">
+                    <Zap className="w-4 h-4 mr-1" />
+                    Process explanation
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-6 border border-orange-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+                      <Download className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Results & Export</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">Get help with downloading, validating, and sharing your structured user stories and requirements</p>
+                  <div className="flex items-center text-xs text-orange-600">
+                    <Zap className="w-4 h-4 mr-1" />
+                    Export guidance
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-6 border border-indigo-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
+                      <Settings className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Requirements Mapping</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">Learn how to effectively map user stories to requirements and design optimal requirement schemas</p>
+                  <div className="flex items-center text-xs text-indigo-600">
+                    <Zap className="w-4 h-4 mr-1" />
+                    Mapping strategies
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-6 border border-red-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                      <Target className="w-5 h-5 text-red-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Quality Assurance</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">Get tips on validating and improving the quality of your AI-generated user stories and requirements</p>
+                  <div className="flex items-center text-xs text-red-600">
+                    <Zap className="w-4 h-4 mr-1" />
+                    Quality tips
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center mt-8">
+                <p className="text-gray-600 mb-4">Click the AI Assistant button on any page to get contextual help</p>
+                <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Available on every step of your workflow</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
