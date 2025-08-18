@@ -122,22 +122,30 @@ export function EditableUserStoriesTable({
   }, [userStories, searchTerm, sortField, sortDirection, priorityFilter, categoryFilter, epicFilter, teamFilter]);
 
   const startEditing = (story: UserStory) => {
+    console.log('🔄 Starting edit for story:', story.id);
     setEditingId(story.id);
     setEditingStory({ ...story });
+    console.log('✅ Edit state set:', { editingId: story.id, editingStory: { ...story } });
   };
 
   const saveEdit = () => {
+    console.log('💾 Saving edit for story:', editingId);
     if (editingStory && editingId) {
       const updatedStories = userStories.map((story: UserStory) => 
         story.id === editingId ? editingStory : story
       );
+      console.log('📝 Updated stories:', updatedStories);
       onStoriesChange(updatedStories);
       setEditingId(null);
       setEditingStory(null);
+      console.log('✅ Edit saved and cleared');
+    } else {
+      console.warn('⚠️ Cannot save: missing editingStory or editingId');
     }
   };
 
   const cancelEdit = () => {
+    console.log('❌ Canceling edit');
     setEditingId(null);
     setEditingStory(null);
   };
@@ -186,6 +194,12 @@ export function EditableUserStoriesTable({
   const renderCell = (story: UserStory, field: keyof UserStory) => {
     if (editingId === story.id && editingStory) {
       switch (field) {
+        case 'id':
+          return (
+            <Badge variant="secondary" className="text-xs font-mono">
+              {editingStory.id}
+            </Badge>
+          );
         case 'userStory':
           return (
             <Input
@@ -287,6 +301,15 @@ export function EditableUserStoriesTable({
               className="w-20"
             />
           );
+        case 'tags':
+          return (
+            <Input
+              value={editingStory.tags.join(', ')}
+              onChange={(e) => setEditingStory({ ...editingStory, tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })}
+              placeholder="tag1, tag2, tag3"
+              className="min-w-[150px]"
+            />
+          );
         default:
           return story[field];
       }
@@ -294,6 +317,12 @@ export function EditableUserStoriesTable({
 
     // Display mode
     switch (field) {
+      case 'id':
+        return (
+          <Badge variant="secondary" className="text-xs font-mono">
+            {story.id}
+          </Badge>
+        );
       case 'useCaseId':
         return (
           <Badge variant="secondary" className="text-xs font-mono">
@@ -331,7 +360,7 @@ export function EditableUserStoriesTable({
           </div>
         );
       default:
-        return story[field];
+        return <span className="text-sm">{String(story[field] || '')}</span>;
     }
   };
 
@@ -456,6 +485,18 @@ export function EditableUserStoriesTable({
 
         {/* Stories Table */}
         <div className="overflow-x-auto">
+          {/* Debug info for development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs">
+              <div className="font-medium text-blue-900 mb-2">Edit Mode Debug:</div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>Editing ID: {editingId || 'None'}</div>
+                <div>Has Editing Story: {editingStory ? 'Yes' : 'No'}</div>
+                <div>Stories Count: {userStories.length}</div>
+              </div>
+            </div>
+          )}
+          
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200">
@@ -574,7 +615,7 @@ export function EditableUserStoriesTable({
             <tbody>
               {filteredAndSortedStories.map((story: UserStory) => (
                 <tr key={story.id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="p-2 font-mono text-xs">{story.id}</td>
+                  <td className="p-2 font-mono text-xs">{renderCell(story, 'id')}</td>
                   <td className="p-2 max-w-xs">{renderCell(story, 'userStory')}</td>
                   <td className="p-2">{renderCell(story, 'userStoryStatement')}</td>
                   <td className="p-2">{renderCell(story, 'epic')}</td>

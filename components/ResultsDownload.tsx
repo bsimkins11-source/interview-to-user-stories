@@ -108,8 +108,11 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
 
   // Sync editable stories when user stories change
   useEffect(() => {
-    if (jobStatus?.userStories) {
+    if (jobStatus?.userStories && jobStatus.userStories.length > 0) {
       setEditableStories(jobStatus.userStories);
+    } else {
+      // If no job stories, use sample data as fallback
+      setEditableStories(getSampleUserStories);
     }
   }, [jobStatus?.userStories]);
 
@@ -688,11 +691,26 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
               </div>
             </div>
           ) : (
-            <EditableUserStoriesTable
-              userStories={editableStories}
-              onStoriesChange={handleStoriesChange}
-              onDownload={handleDownloadEdited}
-            />
+            <div className="space-y-4">
+              {/* Debug info for edit mode */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+                  <div className="font-medium text-blue-900 mb-2">Edit Mode Debug Info:</div>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>View Mode: {viewMode}</div>
+                    <div>Editable Stories Count: {editableStories.length}</div>
+                    <div>Job Stories Count: {jobStatus?.userStories?.length || 0}</div>
+                    <div>Changes Made: {changesCount}</div>
+                  </div>
+                </div>
+              )}
+              
+              <EditableUserStoriesTable
+                userStories={editableStories}
+                onStoriesChange={handleStoriesChange}
+                onDownload={handleDownloadEdited}
+              />
+            </div>
           )}
         </CardContent>
       </Card>
