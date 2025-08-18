@@ -108,13 +108,21 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
 
   // Sync editable stories when user stories change
   useEffect(() => {
+    console.log('🔄 useEffect triggered:', { 
+      hasJobStories: !!jobStatus?.userStories, 
+      jobStoriesLength: jobStatus?.userStories?.length || 0,
+      sampleStoriesLength: sampleUserStories.length,
+      currentEditableLength: editableStories.length
+    });
+    
     if (jobStatus?.userStories && jobStatus.userStories.length > 0) {
+      console.log('✅ Setting editable stories from job status');
       setEditableStories(jobStatus.userStories);
     } else {
-      // If no job stories, use sample data as fallback
-      setEditableStories(getSampleUserStories);
+      console.log('📝 Setting editable stories from sample data');
+      setEditableStories(sampleUserStories);
     }
-  }, [jobStatus?.userStories]);
+  }, [jobStatus?.userStories, sampleUserStories, editableStories.length]);
 
   // Calculate changes made with memoization
   const changesCount = useMemo(() => {
@@ -182,8 +190,15 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
   }, [jobStatus.id, toast]);
 
   const handleViewModeChange = useCallback((mode: 'preview' | 'editable') => {
+    console.log('🔄 View mode changing:', { 
+      from: viewMode, 
+      to: mode, 
+      editableStoriesCount: editableStories.length,
+      hasJobStories: !!jobStatus?.userStories,
+      jobStoriesCount: jobStatus?.userStories?.length || 0
+    });
     setViewMode(mode);
-  }, []);
+  }, [viewMode, editableStories.length, jobStatus?.userStories]);
 
   // Optimized CSV generation with validation
   const generateCSVContent = useCallback((stories: UserStory[]): string => {
@@ -373,75 +388,78 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
     })).sort((a, b) => b.count - a.count);
   }, [jobStatus?.userStories]);
 
+  // Sample data that's always available
+  const sampleUserStories: UserStory[] = [
+    {
+      id: 'US-1',
+      userStory: 'As a workflow manager, I need to approve document submissions so that I can ensure quality control.',
+      userStoryStatement: 'Document approval workflow for quality control',
+      epic: 'Document Management System',
+      stakeholderName: 'Sarah Johnson',
+      stakeholderRole: 'Workflow Manager',
+      stakeholderTeam: 'Operations',
+      category: 'Workflow',
+      changeCatalyst: 'Quality improvement initiative',
+      useCaseId: 'UC-2024-001',
+      priority: 'High' as const,
+      confidence: 0.95,
+      tags: ['Approval', 'Quality Control', 'Document Management']
+    },
+    {
+      id: 'US-2',
+      userStory: 'As a content creator, I want to upload digital assets with metadata so that they can be easily found and managed.',
+      userStoryStatement: 'Digital asset upload with metadata management',
+      epic: 'Digital Asset Management',
+      stakeholderName: 'Mike Chen',
+      stakeholderRole: 'Content Creator',
+      stakeholderTeam: 'Marketing',
+      category: 'DAM',
+      changeCatalyst: 'Digital transformation project',
+      useCaseId: 'UC-2024-002',
+      priority: 'Medium' as const,
+      confidence: 0.88,
+      tags: ['Asset Management', 'Metadata', 'Upload']
+    },
+    {
+      id: 'US-3',
+      userStory: 'As a team member, I need to receive notifications when tasks are assigned to me so that I can respond promptly.',
+      userStoryStatement: 'Task assignment notification system',
+      epic: 'Team Collaboration Platform',
+      stakeholderName: 'Alex Rodriguez',
+      stakeholderRole: 'Team Member',
+      stakeholderTeam: 'Development',
+      category: 'Workflow',
+      changeCatalyst: 'Process efficiency improvement',
+      useCaseId: 'UC-2024-003',
+      priority: 'High' as const,
+      confidence: 0.92,
+      tags: ['Notifications', 'Task Management', 'Communication']
+    },
+    {
+      id: 'US-4',
+      userStory: 'As a system administrator, I want to configure user permissions based on roles so that access control is properly managed.',
+      userStoryStatement: 'Role-based permission configuration',
+      epic: 'Security & Access Control',
+      stakeholderName: 'Jennifer Lee',
+      stakeholderRole: 'System Administrator',
+      stakeholderTeam: 'IT Security',
+      category: 'Security',
+      changeCatalyst: 'Security compliance requirements',
+      useCaseId: 'UC-2024-004',
+      priority: 'Medium' as const,
+      confidence: 0.85,
+      tags: ['Security', 'Permissions', 'Role Management']
+    }
+  ];
+
   const getSampleUserStories = useMemo(() => {
     // Use passed user stories data if available, otherwise fall back to sample data
     if (jobStatus?.userStories && jobStatus.userStories.length > 0) {
       return jobStatus.userStories;
     }
     
-    // Fallback sample data
-    return [
-      {
-        id: 'US-1',
-        userStory: 'As a workflow manager, I need to approve document submissions so that I can ensure quality control.',
-        userStoryStatement: 'Document approval workflow for quality control',
-        epic: 'Document Management System',
-        stakeholderName: 'Sarah Johnson',
-        stakeholderRole: 'Workflow Manager',
-        stakeholderTeam: 'Operations',
-        category: 'Workflow',
-        changeCatalyst: 'Quality improvement initiative',
-        useCaseId: 'UC-2024-001',
-        priority: 'High' as const,
-        confidence: 0.95,
-        tags: ['Approval', 'Quality Control', 'Document Management']
-      },
-      {
-        id: 'US-2',
-        userStory: 'As a content creator, I want to upload digital assets with metadata so that they can be easily found and managed.',
-        userStoryStatement: 'Digital asset upload with metadata management',
-        epic: 'Digital Asset Management',
-        stakeholderName: 'Mike Chen',
-        stakeholderRole: 'Content Creator',
-        stakeholderTeam: 'Marketing',
-        category: 'DAM',
-        changeCatalyst: 'Digital transformation project',
-        useCaseId: 'UC-2024-002',
-        priority: 'Medium' as const,
-        confidence: 0.88,
-        tags: ['Asset Management', 'Metadata', 'Upload']
-      },
-      {
-        id: 'US-3',
-        userStory: 'As a team member, I need to receive notifications when tasks are assigned to me so that I can respond promptly.',
-        userStoryStatement: 'Task assignment notification system',
-        epic: 'Team Collaboration Platform',
-        stakeholderName: 'Alex Rodriguez',
-        stakeholderRole: 'Team Member',
-        stakeholderTeam: 'Development',
-        category: 'Workflow',
-        changeCatalyst: 'Process efficiency improvement',
-        useCaseId: 'UC-2024-003',
-        priority: 'High' as const,
-        confidence: 0.92,
-        tags: ['Notifications', 'Task Management', 'Communication']
-      },
-      {
-        id: 'US-4',
-        userStory: 'As a system administrator, I want to configure user permissions based on roles so that access control is properly managed.',
-        userStoryStatement: 'Role-based permission configuration',
-        epic: 'Security & Access Control',
-        stakeholderName: 'Jennifer Lee',
-        stakeholderRole: 'System Administrator',
-        stakeholderTeam: 'IT Security',
-        category: 'Security',
-        changeCatalyst: 'Security compliance requirements',
-        useCaseId: 'UC-2024-004',
-        priority: 'Medium' as const,
-        confidence: 0.85,
-        tags: ['Security', 'Permissions', 'Role Management']
-      }
-    ];
+    // Fallback to static sample data
+    return sampleUserStories;
   }, [jobStatus?.userStories]);
 
   return (
@@ -692,15 +710,30 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Debug info for edit mode */}
+              {/* Debug info for development */}
               {process.env.NODE_ENV === 'development' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
-                  <div className="font-medium text-blue-900 mb-2">Edit Mode Debug Info:</div>
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div>View Mode: {viewMode}</div>
-                    <div>Editable Stories Count: {editableStories.length}</div>
-                    <div>Job Stories Count: {jobStatus?.userStories?.length || 0}</div>
-                    <div>Changes Made: {changesCount}</div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                  <div className="font-medium text-yellow-900 mb-2">🔍 Debug Info:</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">View Mode:</span>
+                      <div className="text-yellow-700">{viewMode}</div>
+                    </div>
+                    <div>
+                      <span className="font-medium">Editable Stories:</span>
+                      <div className="text-yellow-700">{editableStories.length}</div>
+                    </div>
+                    <div>
+                      <span className="font-medium">Job Stories:</span>
+                      <div className="text-yellow-700">{jobStatus?.userStories?.length || 0}</div>
+                    </div>
+                    <div>
+                      <span className="font-medium">Sample Stories:</span>
+                      <div className="text-yellow-700">{sampleUserStories.length}</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-yellow-600">
+                    Check console for detailed logs
                   </div>
                 </div>
               )}
