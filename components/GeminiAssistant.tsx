@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, Send, X, HelpCircle, Lightbulb, BookOpen, Zap, Target, FileText, Upload, Play, Download, Settings } from 'lucide-react';
 import { generateGeminiResponse, getStepSpecificGuidance, ChatContext } from '@/lib/gemini';
 import { useToast } from '@/components/ui/use-toast';
-import React from 'react'; // Added missing import for React
 
 interface GeminiAssistantProps {
   currentStep: string;
@@ -51,7 +50,7 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
   };
 
   // Update localStorage whenever chat history changes
-  React.useEffect(() => {
+  useEffect(() => {
     saveChatHistory(chatHistory);
   }, [chatHistory]);
 
@@ -249,6 +248,8 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
     setChatHistory(prev => [...prev, newUserMessage]);
 
     try {
+      console.log('Sending message to Gemini:', userMessage);
+      
       // Create chat context
       const chatContext: ChatContext = {
         currentStep,
@@ -259,17 +260,28 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
         chatHistory
       };
 
-      // Generate response using Gemini API
-      const geminiResponse = await generateGeminiResponse(userMessage, chatContext);
+      console.log('Chat context:', chatContext);
+
+      // Try to generate response using Gemini API
+      let geminiResponse;
+      try {
+        geminiResponse = await generateGeminiResponse(userMessage, chatContext);
+        console.log('Gemini response:', geminiResponse);
+      } catch (apiError) {
+        console.warn('Gemini API failed, using fallback:', apiError);
+        geminiResponse = { text: getFallbackResponse(userMessage) };
+      }
       
       if (geminiResponse.error) {
-        // Handle error
-        const errorMessage = { type: 'assistant' as const, message: geminiResponse.text, timestamp: new Date() };
-        setChatHistory(prev => [...prev, errorMessage]);
+        // Handle Gemini API error, use fallback
+        const fallbackResponse = getFallbackResponse(userMessage);
+        const assistantMessage = { type: 'assistant' as const, message: fallbackResponse, timestamp: new Date() };
+        setChatHistory(prev => [...prev, assistantMessage]);
+        
         toast({
-          title: "AI Response Error",
-          description: geminiResponse.error,
-          variant: "destructive",
+          title: "Using Fallback Response",
+          description: "Gemini API unavailable, using built-in help system.",
+          variant: "default",
         });
       } else {
         // Add successful response to chat history
@@ -277,13 +289,17 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
         setChatHistory(prev => [...prev, assistantMessage]);
       }
     } catch (error) {
-      console.error('Error generating response:', error);
-      const errorMessage = { type: 'assistant' as const, message: "I'm sorry, but I encountered an error while processing your request. Please try again.", timestamp: new Date() };
-      setChatHistory(prev => [...prev, errorMessage]);
+      console.error('Error in handleSend:', error);
+      
+      // Use fallback response as last resort
+      const fallbackResponse = getFallbackResponse(userMessage);
+      const assistantMessage = { type: 'assistant' as const, message: fallbackResponse, timestamp: new Date() };
+      setChatHistory(prev => [...prev, assistantMessage]);
+      
       toast({
-        title: "Error",
-        description: "Failed to generate AI response. Please try again.",
-        variant: "destructive",
+        title: "Using Fallback Response",
+        description: "Using built-in help system due to technical issues.",
+        variant: "default",
       });
     } finally {
       setIsTyping(false);
@@ -292,6 +308,42 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
+  };
+
+  // Fallback response system for when Gemini API is not available
+  const getFallbackResponse = (question: string): string => {
+    const lowerQuestion = question.toLowerCase();
+    
+    if (lowerQuestion.includes('how does') || lowerQuestion.includes('how do')) {
+      if (lowerQuestion.includes('work') || lowerQuestion.includes('process')) {
+        return "The Interview ETL process works in 5 main steps: 1) Define your output structure, 2) Upload interview transcripts, 3) AI processes and extracts insights, 4) Edit and refine user stories, 5) Convert to requirements. Each step builds on the previous one to create a comprehensive requirements document.";
+      }
+      if (lowerQuestion.includes('get started')) {
+        return "To get started, click the 'Get Started' button on the home page. This will take you to step 1 where you'll define your output structure. You'll specify what fields you want in your user stories (like stakeholder info, priority, etc.).";
+      }
+      if (lowerQuestion.includes('upload') || lowerQuestion.includes('file')) {
+        return "You can upload interview transcripts in multiple formats: TXT, DOCX, PDF, Markdown, or even ZIP files containing multiple documents. The system will process all files and extract insights using AI.";
+      }
+    }
+
+    if (lowerQuestion.includes('ai') || lowerQuestion.includes('gemini') || lowerQuestion.includes('extraction')) {
+      if (lowerQuestion.includes('how long') || lowerQuestion.includes('time')) {
+        return "AI processing typically takes 2-5 minutes depending on the number and size of your transcripts. The system uses Gemini AI with advanced vectorization to understand context and extract meaningful insights.";
+      }
+      if (lowerQuestion.includes('accuracy') || lowerQuestion.includes('quality')) {
+        return "The AI extraction provides high accuracy through context-aware processing. It analyzes relationships across all interviews and uses your defined schema to ensure consistent output. You can always edit the results before finalizing.";
+      }
+    }
+
+    if (lowerQuestion.includes('vector') || lowerQuestion.includes('context')) {
+      return "Vectorization creates mathematical representations of your interview content, allowing the AI to understand relationships between different parts of your transcripts. This means it can cross-reference information across multiple interviews and stakeholders to provide comprehensive insights.";
+    }
+
+    if (lowerQuestion.includes('requirement') || lowerQuestion.includes('convert')) {
+      return "Requirements are generated by analyzing your user stories and mapping them to detailed technical specifications. The system maintains traceability between user stories and requirements, ensuring nothing is lost in translation.";
+    }
+
+    return "I'm here to help you with the Interview ETL process! I can explain how the system works, provide best practices, help with specific steps, and answer questions about AI processing, vectorization, and requirements generation. What would you like to know more about?";
   };
 
   return (
