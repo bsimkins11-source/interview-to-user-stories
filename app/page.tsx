@@ -67,9 +67,9 @@ export default function HomePage() {
       case 'construct':
         return construct !== null;
       case 'upload':
-        return transcripts.length > 0;
+        return construct !== null && transcripts.length > 0;
       case 'process':
-        return true;
+        return construct !== null && transcripts.length > 0;
       case 'download':
         return false;
       default:
@@ -175,20 +175,42 @@ export default function HomePage() {
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold">Upload Interview Transcripts</h2>
               <p className="text-muted-foreground">
-                Upload files, link to folders, or provide document URLs for your interview transcripts.
+                Upload or link to interview transcripts. You can add multiple sources.
               </p>
+              {!construct && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-yellow-800 text-sm">
+                    ⚠️ You need to define your output structure first. Please go back to the previous step.
+                  </p>
+                </div>
+              )}
             </div>
-            <InterviewTranscriptInput 
-              onTranscriptsAdded={handleTranscriptsAdded}
-              onTranscriptsRemoved={handleTranscriptsRemoved}
-            />
-            <div className="text-center space-y-4">
-              <h3 className="text-xl font-semibold">Import Existing User Stories (Optional)</h3>
-              <p className="text-muted-foreground">
-                Import existing user stories to compare with your generated results.
-              </p>
+            <InterviewTranscriptInput onTranscriptsAdded={handleTranscriptsAdded} onTranscriptsRemoved={handleTranscriptsRemoved} />
+            <ExternalStoryImporter onStoriesImported={handleExternalStoriesImported} existingStories={externalStories} />
+            
+            {/* Progress indicator */}
+            <div className="bg-slate-50 rounded-lg p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span>Progress:</span>
+                <span className="font-medium">
+                  {construct ? '✅ Output structure defined' : '❌ Output structure needed'} • {' '}
+                  {transcripts.length > 0 ? `✅ ${transcripts.length} transcript(s) added` : '❌ No transcripts added'}
+                </span>
+              </div>
+              
+              {/* Debug info for development */}
+              {process.env.NODE_ENV === 'development' && (
+                <details className="mt-3 text-xs text-slate-600">
+                  <summary className="cursor-pointer font-medium">Debug Info</summary>
+                  <div className="mt-2 space-y-1">
+                    <div>Current Step: {currentStep}</div>
+                    <div>Has Construct: {construct ? 'Yes' : 'No'}</div>
+                    <div>Transcripts Count: {transcripts.length}</div>
+                    <div>Can Proceed: {canProceedToNext() ? 'Yes' : 'No'}</div>
+                  </div>
+                </details>
+              )}
             </div>
-            <ExternalStoryImporter onStoriesImported={handleExternalStoriesImported} />
           </div>
         );
 
