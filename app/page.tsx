@@ -521,7 +521,14 @@ export default function HomePage() {
                 </>
               )}
             </Button>
-            {isProcessing && <JobStatus jobId={jobId!} />}
+            {isProcessing && <JobStatus 
+              jobId={jobId!} 
+              onComplete={(jobData) => {
+                setJobStatus('completed');
+                setCurrentStep('download');
+              }}
+              onBack={() => setCurrentStep('upload')}
+            />}
           </div>
         );
 
@@ -537,10 +544,23 @@ export default function HomePage() {
               </div>
             </div>
             <ResultsDownload
-              userStories={[]}
-              requirements={requirements}
-              onDownloadStories={() => {}}
-              onDownloadRequirements={() => {}}
+              jobStatus={{
+                id: jobId || 'temp-id',
+                status: jobStatus,
+                csv_url: '',
+                userStories: [],
+                metrics: {
+                  total_files: transcripts.length,
+                  total_stories: 0,
+                  processing_time: new Date().toISOString()
+                },
+                construct: construct || undefined
+              }}
+              onNewJob={() => {
+                setJobId(null);
+                setJobStatus('idle');
+                setCurrentStep('construct');
+              }}
             />
           </div>
         );
