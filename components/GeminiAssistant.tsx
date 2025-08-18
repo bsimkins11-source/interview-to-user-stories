@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, Send, X, HelpCircle, Lightbulb, BookOpen, Zap, Target, FileText, Upload, Play, Download, Settings } from 'lucide-react';
+import { generateGeminiResponse, getStepSpecificGuidance, ChatContext } from '@/lib/gemini';
+import { useToast } from '@/components/ui/use-toast';
 
 interface GeminiAssistantProps {
   currentStep: string;
@@ -17,6 +19,7 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
   const [isOpen, setIsOpen] = useState(currentStep === 'home'); // Open by default on home page
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [chatHistory, setChatHistory] = useState<Array<{type: 'user' | 'assistant', message: string, timestamp: Date}>>([]);
 
   const getStepContext = () => {
     switch (currentStep) {
@@ -190,15 +193,58 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
   const context = getStepContext();
   const IconComponent = context.icon;
 
+  const { toast } = useToast();
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
+    const userMessage = input.trim();
+    setInput('');
     setIsTyping(true);
-    // Simulate AI response for now
-    setTimeout(() => {
+
+    // Add user message to chat history
+    const newUserMessage = { type: 'user' as const, message: userMessage, timestamp: new Date() };
+    setChatHistory(prev => [...prev, newUserMessage]);
+
+    try {
+      // Create chat context
+      const chatContext: ChatContext = {
+        currentStep,
+        construct,
+        userStories,
+        requirements: [],
+        transcripts: []
+      };
+
+      // Generate response using Gemini API
+      const geminiResponse = await generateGeminiResponse(userMessage, chatContext);
+      
+      if (geminiResponse.error) {
+        // Handle error
+        const errorMessage = { type: 'assistant' as const, message: geminiResponse.text, timestamp: new Date() };
+        setChatHistory(prev => [...prev, errorMessage]);
+        toast({
+          title: "AI Response Error",
+          description: geminiResponse.error,
+          variant: "destructive",
+        });
+      } else {
+        // Add successful response to chat history
+        const assistantMessage = { type: 'assistant' as const, message: geminiResponse.text, timestamp: new Date() };
+        setChatHistory(prev => [...prev, assistantMessage]);
+      }
+    } catch (error) {
+      console.error('Error generating response:', error);
+      const errorMessage = { type: 'assistant' as const, message: "I'm sorry, but I encountered an error while processing your request. Please try again.", timestamp: new Date() };
+      setChatHistory(prev => [...prev, errorMessage]);
+      toast({
+        title: "Error",
+        description: "Failed to generate AI response. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsTyping(false);
-      setInput('');
-    }, 2000);
+    }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -217,7 +263,7 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
               </div>
               <div>
                 <CardTitle className="text-xl">{context.title}</CardTitle>
-                <p className="text-sm text-gray-600">{context.description}</p>
+                <p className="text-sm text-gray-600">{getStepSpecificGuidance(currentStep)}</p>
               </div>
             </div>
             <Button
@@ -283,6 +329,25 @@ export function GeminiAssistant({ currentStep, construct, userStories }: GeminiA
                   <div><strong>Construct:</strong> {construct.name}</div>
                   <div><strong>Fields:</strong> {construct.output_schema?.length || 0} output columns</div>
                   <div><strong>Pattern:</strong> {construct.pattern?.substring(0, 50)}...</div>
+                </div>
+              </div>
+            )}
+
+            {/* Chat History */}
+            {chatHistory.length > 0 && (
+              <div className="bg-white rounded-lg p-4 border border-gray-200 max-h-64 overflow-y-auto">
+                <div className="space-y-3">
+                  {chatHistory.map((chat, index) => (
+                    <div key={index} className={`flex ${chat.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
+                        chat.type === 'user' 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {chat.message}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

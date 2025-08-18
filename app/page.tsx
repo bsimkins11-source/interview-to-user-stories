@@ -798,15 +798,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Gemini AI Assistant at the top */}
-        <div className="mb-8 max-w-4xl mx-auto">
-          <GeminiAssistant 
-            currentStep={currentStep}
-            construct={construct}
-            userStories={[]}
-          />
-        </div>
-
         {/* Main Content */}
         <div className="max-w-4xl mx-auto">
           <Card className="rounded-lg border bg-card text-card-foreground shadow-sm">
