@@ -626,10 +626,16 @@ export default function HomePage() {
                 handleNext();
               }}
               disabled={!canProceedToNext()}
-              className={!canProceedToNext() ? 'opacity-50 cursor-not-allowed' : ''}
+              className={`
+                ${!canProceedToNext() 
+                  ? 'opacity-50 cursor-not-allowed bg-gray-400' 
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-lg transform transition-all duration-200 hover:scale-105'
+                }
+                px-6 py-3 text-lg font-semibold
+              `}
             >
               Next
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>
           
