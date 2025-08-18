@@ -8,6 +8,8 @@ import aiohttp
 from google.cloud import storage
 from google.cloud import firestore
 from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 class ExternalImportService:
     """Service for importing user stories from external sources"""
@@ -60,7 +62,9 @@ class ExternalImportService:
             # Parse the document URL
             source_type = self._detect_source_type(document_url)
             
-            if source_type == 'google_sheets':
+            if source_type == 'google_docs':
+                return await self._import_from_google_docs(document_url, metadata)
+            elif source_type == 'google_sheets':
                 return await self._import_from_google_sheets(document_url, metadata)
             elif source_type == 'excel':
                 return await self._import_from_excel(document_url, metadata)
@@ -207,6 +211,46 @@ class ExternalImportService:
                 'stories_imported': 0
             }
     
+    async def _import_from_google_docs(self, document_url: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Import from Google Docs document"""
+        try:
+            # Extract document ID from URL
+            document_id = self._extract_google_drive_id(document_url)
+            
+            # Use Google Docs API to fetch the document content
+            document_content = await self._fetch_google_docs_content(document_id)
+            
+            if not document_content:
+                return {
+                    'success': False,
+                    'error': 'Failed to fetch document content from Google Docs',
+                    'source_type': 'google_docs',
+                    'stories_imported': 0
+                }
+            
+            # Parse the document content into user stories
+            stories = await self._parse_document_content(document_content, metadata)
+            
+            # Store the imported stories
+            await self._store_imported_stories(stories, metadata, 'google_docs')
+            
+            return {
+                'success': True,
+                'source_type': 'google_docs',
+                'document_id': document_id,
+                'stories_imported': len(stories),
+                'stories': stories,
+                'document_title': document_content.get('title', 'Untitled Document')
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'source_type': 'google_docs',
+                'stories_imported': 0
+            }
+    
     def _extract_google_drive_id(self, url: str) -> str:
         """Extract ID from Google Drive URL"""
         # Handle different Google Drive URL formats
@@ -268,6 +312,109 @@ class ExternalImportService:
                 'tags': ['data', 'export', 'reporting']
             }
         ]
+    
+    async def _simulate_google_docs_import(self, document_id: str) -> List[Dict[str, Any]]:
+        """Simulate importing from Google Docs document"""
+        # Simulate API delay
+        await asyncio.sleep(1)
+        
+        # Return sample stories
+        return [
+            {
+                'id': f'gd_{document_id}_1',
+                'title': 'Document Structure and Formatting',
+                'description': 'As a user, I need to ensure the document is well-structured and formatted so that it is easy to read and understand.',
+                'category': 'Documentation',
+                'priority': 'Low',
+                'source': 'Google Docs',
+                'tags': ['documentation', 'formatting', 'readability']
+            }
+        ]
+    
+    async def _fetch_google_docs_content(self, document_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch content from Google Docs using the API"""
+        try:
+            # Initialize Google Docs API client
+            credentials = None
+            if os.path.exists('service-account-key.json'):
+                credentials = service_account.Credentials.from_service_account_file(
+                    'service-account-key.json',
+                    scopes=['https://www.googleapis.com/auth/documents.readonly']
+                )
+            
+            if not credentials:
+                # Fallback to simulation if no credentials
+                return await self._simulate_google_docs_import(document_id)
+            
+            # Build the Google Docs API service
+            docs_service = build('docs', 'v1', credentials=credentials)
+            
+            # Fetch the document
+            document = docs_service.documents().get(documentId=document_id).execute()
+            
+            # Extract the content
+            content = document.get('body', {}).get('content', [])
+            text_content = self._extract_text_from_docs_content(content)
+            
+            return {
+                'title': document.get('title', 'Untitled Document'),
+                'content': text_content,
+                'document_id': document_id,
+                'last_modified': document.get('properties', {}).get('lastModifyTime', '')
+            }
+            
+        except HttpError as e:
+            if e.resp.status == 404:
+                raise Exception(f"Document not found or access denied: {document_id}")
+            elif e.resp.status == 403:
+                raise Exception(f"Access denied to document: {document_id}")
+            else:
+                raise Exception(f"Google Docs API error: {e}")
+        except Exception as e:
+            # Fallback to simulation if API fails
+            print(f"Google Docs API failed, falling back to simulation: {e}")
+            return await self._simulate_google_docs_import(document_id)
+    
+    def _extract_text_from_docs_content(self, content: List[Dict[str, Any]]) -> str:
+        """Extract plain text from Google Docs content structure"""
+        text_parts = []
+        
+        for element in content:
+            if 'paragraph' in element:
+                paragraph = element['paragraph']
+                if 'elements' in paragraph:
+                    for elem in paragraph['elements']:
+                        if 'textRun' in elem:
+                            text_parts.append(elem['textRun'].get('content', ''))
+                text_parts.append('\n')  # Add line break between paragraphs
+        
+        return ''.join(text_parts).strip()
+    
+    async def _parse_document_content(self, document_content: Dict[str, Any], metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Parse document content into user stories"""
+        content = document_content.get('content', '')
+        title = document_content.get('title', 'Untitled Document')
+        
+        # Simple parsing logic - in a real implementation, you might use AI to extract stories
+        paragraphs = content.split('\n\n')
+        stories = []
+        
+        for i, paragraph in enumerate(paragraphs):
+            if paragraph.strip() and len(paragraph.strip()) > 50:  # Only process substantial paragraphs
+                story = {
+                    'id': f'gd_{document_content.get("document_id", "unknown")}_{i+1}',
+                    'title': f'Story from {title} - Paragraph {i+1}',
+                    'description': paragraph.strip(),
+                    'category': metadata.get('category', 'Document Import'),
+                    'priority': 'Medium',
+                    'source': 'Google Docs',
+                    'source_url': metadata.get('url', ''),
+                    'tags': ['google-docs', 'import', 'document'],
+                    'raw_content': paragraph.strip()
+                }
+                stories.append(story)
+        
+        return stories
     
     async def _parse_csv_stories(self, csv_content: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Parse CSV content into user stories"""

@@ -8,8 +8,8 @@ const API_CONFIG = {
   timeout: 30000, // 30 seconds
   maxRetries: 3,
   retryDelay: 1000, // 1 second
-  circuitBreakerThreshold: 5, // failures before opening circuit
-  circuitBreakerTimeout: 30000, // 30 seconds before trying again
+  circuitBreakerThreshold: 10, // failures before opening circuit (increased from 5)
+  circuitBreakerTimeout: 10000, // 10 seconds before trying again (reduced from 30)
   requestDeduplication: true,
   performanceMonitoring: true
 };
@@ -335,7 +335,7 @@ export async function getJobStatus(jobId: string): Promise<any> {
   }
 
   try {
-    return await apiRequest(`/jobs/${jobId}/status`);
+    return await apiRequest(`/jobs/${jobId}`);
   } catch (error) {
     console.error('Failed to get job status:', error);
     throw error;
@@ -387,4 +387,144 @@ export function clearCache(): void {
 // Reset circuit breakers (useful for testing)
 export function resetCircuitBreakers(): void {
   circuitBreakers.clear();
+}
+
+// Get circuit breaker status for debugging
+export function getCircuitBreakerStatus(): Record<string, any> {
+  const status: Record<string, any> = {};
+  Array.from(circuitBreakers.entries()).forEach(([endpoint, cb]) => {
+    status[endpoint] = {
+      state: cb['state'],
+      failures: cb['failures'],
+      lastFailureTime: cb['lastFailureTime']
+    };
+  });
+  return status;
+}
+
+// Force reset a specific endpoint's circuit breaker
+export function resetCircuitBreakerForEndpoint(endpoint: string): void {
+  circuitBreakers.delete(endpoint);
+}
+
+// External Import API functions
+export async function importFromDocument(
+  documentUrl: string,
+  displayName?: string,
+  description?: string
+): Promise<any> {
+  const formData = new FormData();
+  formData.append('document_url', documentUrl);
+  if (displayName) formData.append('display_name', displayName);
+  if (description) formData.append('description', description);
+
+  const response = await fetch(`${API_BASE_URL}/external-imports/document`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new APIError(
+      errorData.detail || `Failed to import document: ${response.statusText}`,
+      response.status,
+      errorData.code,
+      errorData,
+      response.status >= 500
+    );
+  }
+
+  return response.json();
+}
+
+export async function importFromFolder(
+  folderUrl: string,
+  displayName?: string,
+  description?: string
+): Promise<any> {
+  const formData = new FormData();
+  formData.append('folder_url', folderUrl);
+  if (displayName) formData.append('display_name', displayName);
+  if (description) formData.append('description', description);
+
+  const response = await fetch(`${API_BASE_URL}/external-imports/folder`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new APIError(
+      errorData.detail || `Failed to import folder: ${response.statusText}`,
+      response.status,
+      errorData.code,
+      errorData,
+      response.status >= 500
+    );
+  }
+
+  return response.json();
+}
+
+export async function importFromLink(
+  linkUrl: string,
+  displayName?: string,
+  description?: string
+): Promise<any> {
+  const formData = new FormData();
+  formData.append('link_url', linkUrl);
+  if (displayName) formData.append('display_name', displayName);
+  if (description) formData.append('description', description);
+
+  const response = await fetch(`${API_BASE_URL}/external-imports/link`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new APIError(
+      errorData.detail || `Failed to import link: ${response.statusText}`,
+      response.status,
+      errorData.code,
+      errorData,
+      response.status >= 500
+    );
+  }
+
+  return response.json();
+}
+
+export async function getImportHistory(): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/external-imports`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new APIError(
+      errorData.detail || `Failed to get import history: ${response.statusText}`,
+      response.status,
+      errorData.code,
+      errorData,
+      response.status >= 500
+    );
+  }
+
+  return response.json();
+}
+
+export async function getImportedStories(importId: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/external-imports/${importId}/stories`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new APIError(
+      errorData.detail || `Failed to get imported stories: ${response.statusText}`,
+      response.status,
+      errorData.code,
+      errorData,
+      response.status >= 500
+    );
+  }
+
+  return response.json();
 }

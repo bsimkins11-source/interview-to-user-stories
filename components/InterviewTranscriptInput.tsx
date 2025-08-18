@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { useToast } from './ui/use-toast';
 import { Upload, Link, FolderOpen, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { importFromDocument, importFromFolder } from '@/lib/api';
 
 interface TranscriptInput {
   id: string;
@@ -105,21 +106,29 @@ export default function InterviewTranscriptInput({
     setTranscripts(prev => [...prev, newTranscript]);
 
     try {
-      // Simulate API call
-      await simulateFolderImport(newTranscript);
+      // Call real API
+      const result = await importFromFolder(
+        folderForm.url,
+        folderForm.name || `Imported Folder`,
+        folderForm.description
+      );
       
-      setTranscripts(prev => prev.map(t => 
-        t.id === newTranscript.id 
-          ? { ...t, status: 'completed', file_count: Math.floor(Math.random() * 20) + 5 }
-          : t
-      ));
+      if (result.success) {
+        setTranscripts(prev => prev.map(t => 
+          t.id === newTranscript.id 
+            ? { ...t, status: 'completed', file_count: result.stories_imported || 0 }
+            : t
+        ));
 
-      onTranscriptsAdded([newTranscript]);
+        onTranscriptsAdded([newTranscript]);
 
-      toast({
-        title: "Folder Imported",
-        description: "Successfully imported folder with interview transcripts",
-      });
+        toast({
+          title: "Folder Imported",
+          description: `Successfully imported folder with ${result.stories_imported || 0} stories`,
+        });
+      } else {
+        throw new Error(result.error || 'Import failed');
+      }
 
       // Clear form
       setFolderForm({ url: '', name: '', description: '' });
@@ -164,21 +173,29 @@ export default function InterviewTranscriptInput({
     setTranscripts(prev => [...prev, newTranscript]);
 
     try {
-      // Simulate API call
-      await simulateDocumentImport(newTranscript);
+      // Call real API
+      const result = await importFromDocument(
+        documentForm.url,
+        documentForm.name || `Imported Document`,
+        documentForm.description
+      );
       
-      setTranscripts(prev => prev.map(t => 
-        t.id === newTranscript.id 
-          ? { ...t, status: 'completed', file_count: 1 }
-          : t
-      ));
+      if (result.success) {
+        setTranscripts(prev => prev.map(t => 
+          t.id === newTranscript.id 
+            ? { ...t, status: 'completed', file_count: result.stories_imported || 1 }
+            : t
+        ));
 
-      onTranscriptsAdded([newTranscript]);
+        onTranscriptsAdded([newTranscript]);
 
-      toast({
-        title: "Document Imported",
-        description: "Successfully imported document",
-      });
+        toast({
+          title: "Document Imported",
+          description: `Successfully imported document with ${result.stories_imported || 1} stories`,
+        });
+      } else {
+        throw new Error(result.error || 'Import failed');
+      }
 
       // Clear form
       setDocumentForm({ url: '', name: '', description: '' });
@@ -198,18 +215,6 @@ export default function InterviewTranscriptInput({
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const simulateFolderImport = async (transcript: TranscriptInput): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    if (Math.random() > 0.1) return Promise.resolve();
-    return Promise.reject(new Error('Import failed'));
-  };
-
-  const simulateDocumentImport = async (transcript: TranscriptInput): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    if (Math.random() > 0.1) return Promise.resolve();
-    return Promise.reject(new Error('Import failed'));
   };
 
   const removeTranscript = (id: string) => {

@@ -11,7 +11,7 @@ import InterviewTranscriptInput from '@/components/InterviewTranscriptInput';
 import ExternalStoryImporter from '@/components/ExternalStoryImporter';
 import { JobStatus } from '@/components/JobStatus';
 import { ResultsDownload } from '@/components/ResultsDownload';
-import { createConstruct, createJob, getJobStatus, APIError } from '@/lib/api';
+import { createConstruct, createJob, getJobStatus, APIError, getCircuitBreakerStatus, resetCircuitBreakers } from '@/lib/api';
 import { RequirementsTable } from '@/components/RequirementsTable';
 import { RequirementsConstructEditor } from '@/components/RequirementsConstructEditor';
 import { EditableUserStoriesTable } from '@/components/EditableUserStoriesTable';
@@ -463,7 +463,21 @@ export default function HomePage() {
       let errorMessage = "Failed to start processing";
       if (error instanceof APIError) {
         errorMessage = error.message;
+        
+        // Log circuit breaker status for debugging
+        if (error.code === 'CIRCUIT_BREAKER_OPEN') {
+          console.log('Circuit breaker status:', getCircuitBreakerStatus());
+          errorMessage += ' (Service temporarily unavailable - circuit breaker open)';
+        }
       }
+      
+      // Log the full error for debugging
+      console.log('Full error details:', {
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        circuitBreakerStatus: getCircuitBreakerStatus()
+      });
       
       toast({
         title: "Error",
@@ -651,6 +665,41 @@ export default function HomePage() {
                 </>
               )}
             </Button>
+            
+            {/* Debug button for development */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">Debug Tools (Development Only)</p>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log('Circuit breaker status:', getCircuitBreakerStatus());
+                      toast({
+                        title: "Debug Info",
+                        description: "Circuit breaker status logged to console",
+                      });
+                    }}
+                  >
+                    Show Circuit Breaker Status
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      resetCircuitBreakers();
+                      toast({
+                        title: "Circuit Breakers Reset",
+                        description: "All circuit breakers have been reset",
+                      });
+                    }}
+                  >
+                    Reset Circuit Breakers
+                  </Button>
+                </div>
+              </div>
+            )}
             {isProcessing && <JobStatus 
               jobId={jobId!} 
               onComplete={(jobData) => {
