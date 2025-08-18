@@ -26,26 +26,26 @@ const defaultConstruct: ConstructFormData = {
   name: "Default User Story Template",
   description: "Standard user story format for interview transcripts",
   output_schema: [
-    "User Story ID",
-    "User Story", 
-    "Team",
+    "User Story",
+    "User Story Statement", 
+    "Epic",
+    "Stakeholder Name",
+    "Stakeholder Role",
+    "Stakeholder Team",
     "Category",
-    "Lifecycle Phase",
-    "Capability",
+    "Change Catalyst",
+    "Use Case ID",
     "Priority",
-    "Source",
-    "Snippet",
-    "Match Score",
+    "Confidence",
     "Tags"
   ],
-  pattern: "As a {{role}}, I need {{capability}} so that {{benefit}}.",
+  pattern: "As a {{stakeholder_role}}, I need {{capability}} so that {{benefit}}.",
   defaults: {
     "Category": "Workflow",
-    "Lifecycle Phase": "Execution",
-    "Team": "Product",
-    "Priority": "Medium"
+    "Priority": "Medium",
+    "Confidence": "0.85"
   },
-  priority_rules: ["top|high", "medium", "low"]
+  priority_rules: ["High", "Medium", "Low"]
 };
 
 // Pre-built construct templates

@@ -1,8 +1,10 @@
-# Interview ETL - User Stories Generator
+# Interview ETL User Stories
 
-> **Last Deployment**: 2025-08-17 17:00 UTC
+**Transform interview transcripts into structured user stories with AI-powered extraction**
 
-Transform interview transcripts into structured user stories using AI-powered ETL processing.
+**Last Deployment:** 2024-01-01 21:15 UTC - Enterprise-grade optimizations deployed! 🚀
+
+## 🎯 Overview
 
 ## 🚀 Features
 

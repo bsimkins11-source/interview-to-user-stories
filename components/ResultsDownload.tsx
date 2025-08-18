@@ -189,21 +189,18 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
     }
 
     const headers = [
-      'User Story ID', 
-      'User Story', 
+      'User Story',
       'User Story Statement', 
-      'Epic', 
-      'Stakeholder Name', 
-      'Stakeholder Role', 
-      'Stakeholder Team', 
-      'Category', 
-      'Change Catalyst', 
-      'Use Case ID', 
-      'Priority', 
-      'Confidence', 
-      'Tags', 
-      'Source', 
-      'Extraction Method'
+      'Epic',
+      'Stakeholder Name',
+      'Stakeholder Role',
+      'Stakeholder Team',
+      'Category',
+      'Change Catalyst',
+      'Use Case ID',
+      'Priority',
+      'Confidence',
+      'Tags'
     ];
     
     const csvRows = stories.map((story: UserStory) => {
@@ -213,7 +210,6 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
       }
 
       return [
-        story.id || '',
         `"${(story.userStory || '').replace(/"/g, '""')}"`,
         `"${(story.userStoryStatement || '').replace(/"/g, '""')}"`,
         story.epic || '',
@@ -226,8 +222,6 @@ export const ResultsDownload = React.memo(function ResultsDownload({ jobStatus, 
         story.priority || '',
         story.confidence || 0,
         (story.tags || []).join(';'),
-        story.source || '',
-        story.extractionMethod || 'Manual Edit'
       ];
     });
     
