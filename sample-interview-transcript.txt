@@ -1,0 +1,72 @@
+INTERVIEW TRANSCRIPT: Sarah Johnson - Workflow Manager
+====================================================
+
+Interviewer: "Sarah, can you tell me about your role and what processes you're trying to improve?"
+
+Sarah Johnson (Workflow Manager): "I'm a workflow manager responsible for overseeing document approval processes across our marketing and legal teams. Currently, we're using email threads for approvals, which is causing significant delays and we're losing track of what's been approved and what hasn't. We need a centralized system that can automatically route documents to the right approvers, send reminders when approvals are overdue, and maintain complete audit trails for compliance purposes."
+
+Interviewer: "What specific capabilities do you need in this approval system?"
+
+Sarah: "I need the system to automatically route documents based on content type and dollar amount. For example, marketing materials under $5,000 should go to the marketing director, while legal contracts should go to our general counsel. The system should also send notifications when approvals are overdue, escalate to managers when needed, and provide a dashboard showing all pending approvals with clear status indicators. Most importantly, we need to maintain complete audit trails showing who approved what and when for our compliance requirements."
+
+Interviewer: "What are the current pain points with the email-based process?"
+
+Sarah: "The main issues are that approvals get lost in long email threads, we can't track status easily, and there's no way to know if someone is on vacation or unavailable. We also need better visibility into approval bottlenecks and the ability to reassign approvals when people are out of office. Right now, if someone is on vacation, their approvals just sit there until they return, which delays our entire process."
+
+Interviewer: "How do you currently handle different types of documents?"
+
+Sarah: "We handle marketing materials, legal contracts, vendor agreements, and budget approvals. Each type has different approval workflows and requirements. For example, marketing materials need brand compliance review, legal contracts need legal review, and budget items need financial approval. We need the system to understand these different document types and automatically apply the right approval workflow."
+
+Interviewer: "What reporting and analytics do you need?"
+
+Sarah: "I need to see approval cycle times, identify bottlenecks, track who's approving what, and generate reports for management on our approval efficiency. The system should also alert us when approvals are taking longer than expected so we can intervene before it impacts our business operations."
+
+---
+
+INTERVIEW TRANSCRIPT: Michael Chen - Digital Asset Manager
+========================================================
+
+Interviewer: "Michael, tell me about your role and what you're trying to accomplish."
+
+Michael Chen (Digital Asset Manager): "I'm responsible for managing all our digital assets including marketing materials, product images, documentation, and brand assets. We currently have assets scattered across multiple systems - some in Dropbox, some in Google Drive, some on local servers. We need a centralized digital asset management system that can organize everything with proper metadata, version control, and access permissions."
+
+Interviewer: "What specific capabilities do you need for asset management?"
+
+Michael: "I need the system to automatically extract metadata from files, support version control so we can track changes, and provide role-based access control. Users should be able to search assets by metadata, see usage history, and get notifications when assets are updated. We also need the ability to create asset collections and share them with specific teams or individuals."
+
+Interviewer: "What types of assets are you managing?"
+
+Michael: "We have marketing materials like brochures, product images, brand guidelines, legal documents, training materials, and customer presentations. Each type needs different metadata and access controls. For example, brand assets need to be accessible to all marketing team members, while legal documents need restricted access to only legal team members."
+
+Interviewer: "What are your current challenges with asset organization?"
+
+Michael: "The biggest challenge is finding assets quickly. Right now, people spend too much time searching through different systems, and we often end up recreating assets that already exist. We also need better control over who can access what, and we need to ensure that when assets are updated, everyone using them gets notified about the changes."
+
+Interviewer: "How do you want to handle asset lifecycle management?"
+
+Michael: "I need the system to track asset usage, identify unused assets that can be archived, and manage asset expiration dates. We should also be able to set up approval workflows for new assets and track who's using what assets for reporting purposes."
+
+---
+
+INTERVIEW TRANSCRIPT: Jennifer Rodriguez - System Integration Specialist
+=====================================================================
+
+Interviewer: "Jennifer, what's your role and what integration challenges are you facing?"
+
+Jennifer Rodriguez (System Integration Specialist): "I'm responsible for ensuring our various business systems can communicate with each other and share data effectively. Currently, we have our CRM, ERP, marketing automation platform, and customer support system operating in silos, which means customer data isn't synchronized and we're missing opportunities for better customer service and sales."
+
+Interviewer: "What specific integration capabilities do you need?"
+
+Jennifer: "I need real-time data synchronization between our CRM and ERP systems, automated data import/export capabilities, and API access to all our systems. The integration should handle data mapping, validation, and error handling. We also need webhook support for real-time notifications when data changes in any system."
+
+Interviewer: "What types of data need to be synchronized?"
+
+Jennifer: "Customer information, order data, product information, and marketing campaign data. For example, when a lead is created in our marketing system, it should automatically create a contact in our CRM. When an order is placed in our ERP, it should update the customer's purchase history in our CRM. And when we update product information, it should sync across all systems that use that data."
+
+Interviewer: "What are your current integration challenges?"
+
+Jennifer: "The main challenges are data inconsistency, manual data entry, and lack of real-time updates. We're currently using scheduled batch processes that run overnight, but this means our data is always a day old. We also have issues with data quality and duplicate records because each system maintains its own customer database."
+
+Interviewer: "What security and compliance requirements do you have for data sharing?"
+
+Jennifer: "We need to ensure that sensitive customer data is encrypted in transit and at rest, and that we maintain audit trails of all data transfers. We also need role-based access control so that users can only access the data they're authorized to see. Most importantly, we need to comply with GDPR and other data privacy regulations."
