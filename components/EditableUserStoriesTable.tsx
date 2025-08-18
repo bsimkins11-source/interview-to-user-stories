@@ -69,15 +69,15 @@ export function EditableUserStoriesTable({
 
   // Get unique values for filters
   const uniqueEpics = useMemo(() => {
-    return Array.from(new Set(userStories.map(story => story.epic).filter(Boolean)));
+    return Array.from(new Set(userStories.map((story: UserStory) => story.epic).filter(Boolean)));
   }, [userStories]);
 
   const uniqueTeams = useMemo(() => {
-    return Array.from(new Set(userStories.map(story => story.stakeholderTeam).filter(Boolean)));
+    return Array.from(new Set(userStories.map((story: UserStory) => story.stakeholderTeam).filter(Boolean)));
   }, [userStories]);
 
   const uniqueCategories = useMemo(() => {
-    return Array.from(new Set(userStories.map(story => story.category).filter(Boolean)));
+    return Array.from(new Set(userStories.map((story: UserStory) => story.category).filter(Boolean)));
   }, [userStories]);
 
   // Filter and sort stories
@@ -128,7 +128,7 @@ export function EditableUserStoriesTable({
 
   const saveEdit = () => {
     if (editingStory && editingId) {
-      const updatedStories = userStories.map(story => 
+      const updatedStories = userStories.map((story: UserStory) => 
         story.id === editingId ? editingStory : story
       );
       onStoriesChange(updatedStories);
@@ -572,7 +572,7 @@ export function EditableUserStoriesTable({
               </tr>
             </thead>
             <tbody>
-              {filteredAndSortedStories.map((story) => (
+              {filteredAndSortedStories.map((story: UserStory) => (
                 <tr key={story.id} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="p-2 font-mono text-xs">{story.id}</td>
                   <td className="p-2 max-w-xs">{renderCell(story, 'userStory')}</td>
