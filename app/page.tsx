@@ -11,12 +11,12 @@ import InterviewTranscriptInput from '@/components/InterviewTranscriptInput';
 import ExternalStoryImporter from '@/components/ExternalStoryImporter';
 import { JobStatus } from '@/components/JobStatus';
 import { ResultsDownload } from '@/components/ResultsDownload';
-import { GeminiAssistant } from '@/components/GeminiAssistant';
 import { createConstruct, createJob, getJobStatus, APIError } from '@/lib/api';
 import { RequirementsTable } from '@/components/RequirementsTable';
 import { RequirementsConstructEditor } from '@/components/RequirementsConstructEditor';
 import { EditableUserStoriesTable } from '@/components/EditableUserStoriesTable';
 import { GlobalHeader } from '@/components/GlobalHeader';
+import { RightRailAI } from '@/components/RightRailAI';
 
 type Step = 'home' | 'construct' | 'upload' | 'process' | 'download' | 'userStories' | 'requirements_construct' | 'requirements';
 
@@ -597,19 +597,10 @@ export default function HomePage() {
                     </div>
                     <h3 className="text-xl font-semibold mb-2">AI Assistant</h3>
                     <p className="text-gray-600">Get help and guidance throughout the entire process</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Gemini AI Assistant below the app intro */}
-              <div className="max-w-4xl mx-auto">
-                <GeminiAssistant 
-                  currentStep="home"
-                  construct={construct}
-                  userStories={[]}
-                />
-              </div>
-            </div>
+                                </CardContent>
+            </Card>
+          </div>
+        </div>
           </div>
         );
       case 'construct':
@@ -754,16 +745,14 @@ export default function HomePage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="container mx-auto px-4 py-8">
           {getStepContent()}
-          
-          {/* Gemini AI Assistant below the app intro */}
-          <div className="mt-12 max-w-4xl mx-auto">
-            <GeminiAssistant 
-              currentStep="home"
-              construct={construct}
-              userStories={[]}
-            />
-          </div>
         </div>
+        
+        {/* Right Rail AI Assistant - Available on all pages */}
+        <RightRailAI 
+          currentStep={currentStep}
+          construct={construct}
+          userStories={userStories}
+        />
       </div>
     );
   }
@@ -840,6 +829,13 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+      
+      {/* Right Rail AI Assistant - Available on all pages */}
+      <RightRailAI 
+        currentStep={currentStep}
+        construct={construct}
+        userStories={userStories}
+      />
     </div>
   );
 }
