@@ -1,4 +1,6 @@
 {
-  "framework": null,
-  "outputDirectory": "public"
+  "framework": "nextjs",
+  "buildCommand": "npm run build && cp -r .next/* public/",
+  "outputDirectory": "public",
+  "installCommand": "npm install"
 }
