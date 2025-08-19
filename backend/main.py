@@ -40,7 +40,8 @@ app = FastAPI(
 # CORS configuration
 CORS_ALLOW_ORIGINS = [
     "http://localhost:3000",
-    "https://interview-etl-frontend.vercel.app"
+    "https://interview-etl-frontend.vercel.app",
+    "https://interview-to-user-stories.vercel.app"
 ]
 
 app.add_middleware(
