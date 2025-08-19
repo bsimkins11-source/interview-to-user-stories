@@ -7,9 +7,9 @@ import logging
 import traceback
 from typing import List, Dict, Any, Optional
 import json
-import os
 from google.cloud import storage
 from google.cloud import firestore
+from google.cloud import pubsub_v1
 from datetime import datetime
 
 # Configure logging
@@ -58,8 +58,34 @@ construct_service = ConstructService()
 storage_service = StorageService()
 external_import_service = ExternalImportService()
 
+async def publish_job_to_worker(job_id: str):
+    """Publish job message to Pub/Sub for worker processing"""
+    try:
+        topic_path = publisher.topic_path(
+            os.getenv('PUBSUB_PROJECT_ID', 'interview-to-user-stories'),
+            os.getenv('PUBSUB_TOPIC_NAME', 'interview-processing-jobs')
+        )
+        
+        message_data = {
+            'job_id': job_id,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+        future = publisher.publish(topic_path, json.dumps(message_data).encode('utf-8'))
+        message_id = future.result()
+        
+        logger.info(f"✅ Published job {job_id} to Pub/Sub with message ID: {message_id}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to publish job {job_id} to Pub/Sub: {e}")
+        return False
+
 # Initialize Firestore client for download endpoints
 firestore_client = firestore.Client()
+
+# Initialize Pub/Sub publisher for job processing
+publisher = pubsub_v1.PublisherClient()
 
 # Global exception handler for all unhandled exceptions
 @app.exception_handler(Exception)
@@ -202,6 +228,9 @@ async def create_job(job_data: JobCreate):
         )
         
         logger.info(f"Job created successfully: {job_id}")
+        
+        # Publish job to Pub/Sub for worker processing
+        await publish_job_to_worker(job_id)
         
         # Get the full job data to return
         job = await job_service.get_job(job_id)
