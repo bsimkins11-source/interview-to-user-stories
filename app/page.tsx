@@ -395,6 +395,7 @@ export default function HomePage() {
     try {
       setJobStatus('processing');
       setProcessingProgress(0);
+      setIsProcessing(true); // Set this to show the progress bar
 
       // Create job
       const job = await createJob(construct, transcripts);
@@ -415,6 +416,7 @@ export default function HomePage() {
           if (status.status === 'COMPLETED') {
             clearInterval(pollInterval);
             setProcessingProgress(100);
+            setIsProcessing(false); // Hide progress bar when complete
             
             try {
               // Fetch the actual user stories from the completed job
@@ -477,6 +479,7 @@ export default function HomePage() {
             }
           } else if (status.status === 'FAILED') {
             clearInterval(pollInterval);
+            setIsProcessing(false); // Hide progress bar when failed
             toast({
               title: "Processing Failed",
               description: "There was an error processing your data. Please try again.",
@@ -491,6 +494,7 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error starting processing:', error);
       setJobStatus('idle');
+      setIsProcessing(false); // Hide progress bar on error
       
       let errorMessage = "Failed to start processing";
       if (error instanceof APIError) {
