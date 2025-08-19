@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import models and services
-from models import Construct, TranscriptInput, JobCreate, JobResponse, Requirement, UserStory, ProcessingResult
+from models import Construct, ConstructCreate, ConstructResponse, TranscriptInput, JobCreate, JobResponse, Requirement, UserStory, ProcessingResult
 from services.job_service import JobService
 from services.construct_service import ConstructService
 from services.storage_service import StorageService
