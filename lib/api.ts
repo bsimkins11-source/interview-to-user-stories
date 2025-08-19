@@ -318,6 +318,7 @@ export async function createJob(construct: any, transcripts: any[]): Promise<any
     return await apiRequest('/jobs', {
       method: 'POST',
       body: JSON.stringify({
+        name: `Interview ETL Job ${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}`,
         construct,
         transcripts,
       }),
