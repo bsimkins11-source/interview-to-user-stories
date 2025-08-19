@@ -10,18 +10,18 @@ class JobService:
         self.db = firestore.Client()
         self.collection = self.db.collection(os.getenv("FIRESTORE_COLLECTION_JOBS", "Jobs"))
     
-    async def create_job(self, job: JobCreate) -> str:
+    async def create_job(self, name: str = None, description: str = None, construct: dict = None, transcripts: list = None) -> str:
         """Create a new job in Firestore and return the job ID"""
         job_id = str(uuid.uuid4())
         now = datetime.utcnow()
         
         job_data = {
             "id": job_id,
-            "name": job.name or f"Interview ETL Job {now.strftime('%Y%m%d-%H%M%S')}",
-            "description": job.description or "AI-powered interview transcript processing",
+            "name": name or f"Interview ETL Job {now.strftime('%Y%m%d-%H%M%S')}",
+            "description": description or "AI-powered interview transcript processing",
             "status": JobStatus.CREATED.value,
-            "construct": job.construct,
-            "transcripts": job.transcripts,
+            "construct": construct,
+            "transcripts": transcripts,
             "files": [],
             "created_at": now,
             "updated_at": now,
