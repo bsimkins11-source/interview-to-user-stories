@@ -416,33 +416,65 @@ export default function HomePage() {
             clearInterval(pollInterval);
             setProcessingProgress(100);
             
-            // Set requirements with sample data (TODO: fetch real data)
-            setRequirements([
-              {
-                req_id: 'REQ-001',
-                requirement: 'User authentication system',
-                priority_level: 'HIGH',
-                req_details: 'Implement secure user login and registration',
-                source_story_id: 'US-001'
-              },
-              {
-                req_id: 'REQ-002',
-                requirement: 'Document management workflow',
-                priority_level: 'MEDIUM',
-                req_details: 'Create approval workflow for document submissions',
-                source_story_id: 'US-002'
+            try {
+              // Fetch the actual user stories from the completed job
+              const jobData = await getJobStatus(job.id);
+              console.log('Job completed, fetched data:', jobData);
+              
+              if (jobData.user_stories && Array.isArray(jobData.user_stories)) {
+                setUserStories(jobData.user_stories);
+                console.log('Set user stories:', jobData.user_stories);
+              } else {
+                console.warn('No user stories found in job data, using sample data');
+                // Fallback to sample data if none found
+                setUserStories(generateSampleUserStories());
               }
-            ]);
-            
-            toast({
-              title: "Processing Complete!",
-              description: "Your user stories have been extracted successfully.",
-            });
-            
-            // Auto-advance to download step
-            setTimeout(() => {
-              handleNext();
-            }, 1000);
+              
+              if (jobData.requirements && Array.isArray(jobData.requirements)) {
+                setRequirements(jobData.requirements);
+              } else {
+                // Set sample requirements as fallback
+                setRequirements([
+                  {
+                    req_id: 'REQ-001',
+                    requirement: 'User authentication system',
+                    priority_level: 'HIGH',
+                    req_details: 'Implement secure user login and registration',
+                    source_story_id: 'US-001'
+                  },
+                  {
+                    req_id: 'REQ-002',
+                    requirement: 'Document management workflow',
+                    priority_level: 'MEDIUM',
+                    req_details: 'Create approval workflow for document submissions',
+                    source_story_id: 'US-002'
+                  }
+                ]);
+              }
+              
+              toast({
+                title: "Processing Complete!",
+                description: `Successfully extracted ${jobData.user_stories?.length || 0} user stories.`,
+              });
+              
+              // Auto-advance to userStories step to review and edit
+              setTimeout(() => {
+                setCurrentStep('userStories');
+              }, 1000);
+              
+            } catch (error) {
+              console.error('Error fetching completed job data:', error);
+              toast({
+                title: "Warning",
+                description: "Processing completed but couldn't fetch results. Using sample data.",
+                variant: "destructive"
+              });
+              // Fallback to sample data
+              setUserStories(generateSampleUserStories());
+              setTimeout(() => {
+                setCurrentStep('userStories');
+              }, 1000);
+            }
           } else if (status.status === 'FAILED') {
             clearInterval(pollInterval);
             toast({
