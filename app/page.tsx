@@ -191,9 +191,9 @@ export default function HomePage() {
         case 'construct':
           return construct !== null && construct.name && construct.output_schema && construct.output_schema.length > 0;
         case 'upload':
-          return construct !== null && transcripts.length > 0;
+          return construct !== null; // Allow navigation even without transcripts
         case 'process':
-          return construct !== null && transcripts.length > 0;
+          return construct !== null; // Allow navigation even without transcripts
         case 'download':
           return construct !== null && transcripts.length > 0;
         case 'userStories':
