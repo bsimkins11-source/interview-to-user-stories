@@ -666,6 +666,27 @@ export default function HomePage() {
               )}
             </Button>
             
+            {/* Progress Bar - Show during processing */}
+            {isProcessing && (
+              <div className="space-y-4 mt-6">
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>AI Processing Progress</span>
+                  <span>{processingProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div 
+                    className="bg-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${processingProgress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-slate-500 text-center">
+                  {processingProgress === 0 && "Starting AI processing..."}
+                  {processingProgress > 0 && processingProgress < 100 && "AI is analyzing your interview data..."}
+                  {processingProgress === 100 && "Processing complete! Moving to next step..."}
+                </p>
+              </div>
+            )}
+            
             {/* Debug button for development */}
             {process.env.NODE_ENV === 'development' && (
               <div className="mt-4 p-4 bg-gray-100 rounded-lg">
