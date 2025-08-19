@@ -194,14 +194,19 @@ async def create_job(job_data: JobCreate):
                     )
         
         # Create job
-        job = await job_service.create_job(
+        job_id = await job_service.create_job(
             name=job_data.name,
             description=job_data.description,
             construct=job_data.construct,
             transcripts=job_data.transcripts
         )
         
-        logger.info(f"Job created successfully: {job.id}")
+        logger.info(f"Job created successfully: {job_id}")
+        
+        # Get the full job data to return
+        job = await job_service.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=500, detail="Failed to retrieve created job")
         
         return job
         
