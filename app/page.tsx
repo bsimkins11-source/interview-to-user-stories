@@ -60,7 +60,7 @@ export default function HomePage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>('idle');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState<number>(0);
+
   const [forceRefresh, setForceRefresh] = useState(0);
   const [requirements, setRequirements] = useState<any[]>([]);
   const [userStories, setUserStories] = useState<any[]>([]);
@@ -153,11 +153,7 @@ export default function HomePage() {
     ];
   };
 
-  // Initialize with sample data
-  useEffect(() => {
-    setUserStories(generateSampleUserStories());
-    setRequirements(generateSampleRequirements());
-  }, []);
+  // Initialize with empty data - will be populated when processing completes
 
   const { toast } = useToast();
 
@@ -392,10 +388,9 @@ export default function HomePage() {
       return;
     }
 
-    try {
-      setJobStatus('processing');
-      setProcessingProgress(0);
-      setIsProcessing(true); // Set this to show the progress bar
+            try {
+          setJobStatus('processing');
+          setIsProcessing(true); // Set this to show the progress bar
 
       // Create job
       const job = await createJob(construct, transcripts);
@@ -413,10 +408,9 @@ export default function HomePage() {
           setJobStatus(status.status);
           setProcessingProgress(status.progress || 0);
 
-          if (status.status === 'COMPLETED') {
-            clearInterval(pollInterval);
-            setProcessingProgress(100);
-            setIsProcessing(false); // Hide progress bar when complete
+                  if (status.status === 'COMPLETED') {
+          clearInterval(pollInterval);
+          setIsProcessing(false); // Hide progress bar when complete
             
             try {
               // Fetch the actual user stories from the completed job
@@ -702,27 +696,6 @@ export default function HomePage() {
               )}
             </Button>
             
-            {/* Progress Bar - Show during processing */}
-            {isProcessing && (
-              <div className="space-y-4 mt-6">
-                <div className="flex justify-between text-sm text-slate-600">
-                  <span>AI Processing Progress</span>
-                  <span>{processingProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${processingProgress}%` }}
-                  />
-                </div>
-                <p className="text-sm text-slate-500 text-center">
-                  {processingProgress === 0 && "Starting AI processing..."}
-                  {processingProgress > 0 && processingProgress < 100 && "AI is analyzing your interview data..."}
-                  {processingProgress === 100 && "Processing complete! Moving to next step..."}
-                </p>
-              </div>
-            )}
-            
             {/* Debug button for development */}
             {process.env.NODE_ENV === 'development' && (
               <div className="mt-4 p-4 bg-gray-100 rounded-lg">
@@ -757,14 +730,47 @@ export default function HomePage() {
                 </div>
               </div>
             )}
-            {isProcessing && <JobStatus 
-              jobId={jobId!} 
-              onComplete={(jobData) => {
-                setJobStatus('completed');
-                setCurrentStep('download');
-              }}
-              onBack={() => setCurrentStep('upload')}
-            />}
+            
+            {/* Show JobStatus component when processing starts */}
+            {isProcessing && jobId && (
+              <div className="mt-6">
+                <JobStatus 
+                  jobId={jobId} 
+                  onComplete={(jobData) => {
+                    setJobStatus('completed');
+                    
+                    // Check if job has user stories and requirements
+                    if (jobData.user_stories && Array.isArray(jobData.user_stories) && jobData.user_stories.length > 0) {
+                      setUserStories(jobData.user_stories);
+                      console.log('Loaded real user stories:', jobData.user_stories);
+                      toast({
+                        title: "Real Data Loaded!",
+                        description: `Successfully loaded ${jobData.user_stories.length} AI-generated user stories.`,
+                      });
+                    } else {
+                      console.warn('No user stories found in job data, using sample data');
+                      setUserStories(generateSampleUserStories());
+                      toast({
+                        title: "Using Sample Data",
+                        description: "Job completed but no user stories found. Using sample data for demonstration.",
+                        variant: "destructive"
+                      });
+                    }
+                    
+                    if (jobData.requirements && Array.isArray(jobData.requirements) && jobData.requirements.length > 0) {
+                      setRequirements(jobData.requirements);
+                      console.log('Loaded real requirements:', jobData.requirements);
+                    } else {
+                      console.warn('No requirements found in job data, using sample data');
+                      setRequirements(generateSampleRequirements());
+                    }
+                    
+                    setCurrentStep('userStories');
+                  }}
+                  onBack={() => setCurrentStep('upload')}
+                />
+              </div>
+            )}
           </div>
         );
       case 'download':
